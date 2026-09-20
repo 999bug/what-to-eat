@@ -17,6 +17,7 @@ import type {
 import { loadItem, saveItem } from '@/lib/storage'
 import { todayStr, monthOf, prettyDate } from '@/lib/date'
 import { pickCandidates, pickWeighted, poolForMeal } from '@/lib/pool'
+import { fetchRemoteVersion, isNewer } from '@/lib/version'
 import { mealName } from '@/data/meta'
 import { seedRecords } from '@/data/seed'
 
@@ -51,12 +52,14 @@ export interface AppState {
   shownIds: string[]
   selDate: string
   month: string
-  sheet: 'filters' | 'pick' | null
+  sheet: 'filters' | 'pick' | 'version' | null
   pickDate: string
   pickMeal: MealId
   pickQuery: string
   /** 轻提示（1.8s 自动消失） */
   toast: { id: number; msg: string } | null
+  /** 远端检测到的新版本（null = 无更新或尚未检测） */
+  updateVersion: string | null
 
   // ---- 持久化态 ----
   records: MealRecord[]
@@ -93,8 +96,14 @@ export interface AppState {
   goThisMonth: () => void
   openFilters: () => void
   openPick: (date: string, meal: MealId) => void
+  /** 打开版本说明（当前版本 + 更新日志 + 检查更新） */
+  openVersion: () => void
   closeSheet: () => void
   setPickQuery: (q: string) => void
+  /** 检测线上是否已有新版本（离线或请求失败时静默，不打扰用户） */
+  checkUpdate: () => Promise<void>
+  /** 应用更新：刷新页面，取回最新静态资源 */
+  applyUpdate: () => void
   updateSetting: <K extends keyof Settings>(k: K, v: Settings[K]) => void
   toggleSetting: (k: 'midnight' | 'dedupe' | 'goalOn') => void
   exportData: () => void
@@ -142,6 +151,7 @@ export const useAppStore = create<AppState>((set, get) => {
     pickMeal: 'l',
     pickQuery: '',
     toast: null,
+    updateVersion: null,
 
     records: initialRecords(),
     settings: settings0,
@@ -302,8 +312,21 @@ export const useAppStore = create<AppState>((set, get) => {
 
     openFilters: () => set({ sheet: 'filters' }),
     openPick: (date, meal) => set({ sheet: 'pick', pickDate: date, pickMeal: meal, pickQuery: '' }),
+    openVersion: () => set({ sheet: 'version' }),
     closeSheet: () => set({ sheet: null }),
     setPickQuery: (q) => set({ pickQuery: q }),
+
+    checkUpdate: async () => {
+      const remote = await fetchRemoteVersion()
+      if (!remote) return
+      if (!isNewer(remote, __APP_VERSION__)) return
+      if (get().updateVersion === remote) return
+      set({ updateVersion: remote })
+    },
+
+    applyUpdate: () => {
+      window.location.reload()
+    },
 
     updateSetting: (k, v) => {
       const settings = { ...get().settings, [k]: v }

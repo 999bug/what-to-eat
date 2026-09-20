@@ -15,6 +15,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    version: '1.0.1',
+    date: '2026-09-20',
+    features: [
+      '抽中结果改为居中弹出展示，不用再下滑到页面底部查看；关掉后可从转盘下方「查看结果」再次打开',
+      '首页顶部新增「版本说明」入口：查看当前版本、完整更新日志，并可手动检查更新',
+      '线上发布新版本后，首页出现「有新版本 · 点此刷新」，点击即刷新到最新版',
+      '进入页面、每小时、切回标签页时各检测一次线上版本，长期挂着也能收到更新提示',
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-09-20',
     features: [

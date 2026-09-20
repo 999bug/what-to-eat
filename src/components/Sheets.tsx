@@ -1,13 +1,16 @@
-/** 底部/居中弹层：筛选面板与补录面板 */
+/** 底部/居中弹层：筛选面板、补录面板、版本说明 */
+import { useState } from 'react'
 import { useAppStore } from '@/stores/useAppStore'
 import { AVOID_META, CUISINES, LEVEL_META, TAG_META } from '@/data/meta'
 import { DISHES } from '@/data/dishes'
 import { mealName, levelName } from '@/data/meta'
+import { CHANGELOG } from '@/changelog/changelogData'
 
 export function SheetHost() {
   const sheet = useAppStore((s) => s.sheet)
   if (sheet === 'filters') return <FiltersSheet />
   if (sheet === 'pick') return <PickSheet />
+  if (sheet === 'version') return <VersionSheet />
   return null
 }
 
@@ -152,6 +155,79 @@ function PickSheet() {
             </button>
           ))}
           {hits.length === 0 ? <div className="empty">没有匹配的菜</div> : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 版本说明：当前版本、更新检测结果、更新日志 */
+function VersionSheet() {
+  const closeSheet = useAppStore((s) => s.closeSheet)
+  const updateVersion = useAppStore((s) => s.updateVersion)
+  const checkUpdate = useAppStore((s) => s.checkUpdate)
+  const applyUpdate = useAppStore((s) => s.applyUpdate)
+  const showToast = useAppStore((s) => s.showToast)
+  const [checking, setChecking] = useState(false)
+
+  /** 手动检查：结果以 toast 回报，检测不到/离线都视为「已是最新」 */
+  const onCheck = async () => {
+    setChecking(true)
+    await checkUpdate()
+    setChecking(false)
+    const found = useAppStore.getState().updateVersion
+    showToast(found ? `线上已有新版本 v${found}，可刷新更新` : '已是最新版本')
+  }
+
+  return (
+    <div className="sheet-mask" onClick={closeSheet}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-head">
+          <h3>版本说明</h3>
+          <button className="btn btn-sm btn-ghost" onClick={closeSheet}>
+            关闭
+          </button>
+        </div>
+
+        <div className="sheet-sec">
+          <div className="lb">当前版本</div>
+          <div className="ver-line">v{__APP_VERSION__}</div>
+          {updateVersion ? (
+            <div className="upd">
+              <span>线上已有新版本 v{updateVersion}</span>
+              <button className="btn btn-sm btn-primary" onClick={applyUpdate}>
+                刷新更新
+              </button>
+            </div>
+          ) : null}
+          <div className="row-acts">
+            <button className="btn btn-sm" onClick={onCheck} disabled={checking}>
+              {checking ? '检查中…' : '检查更新'}
+            </button>
+          </div>
+          <p className="note">
+            更新只是刷新页面取回新版页面文件，记录仍保存在本设备浏览器中，不受影响。
+          </p>
+        </div>
+
+        <div className="sheet-sec">
+          <div className="lb">更新日志</div>
+          <div className="changelog">
+            {CHANGELOG.map((e) => (
+              <div key={e.version} className="cl-item">
+                <div className="cl-head">
+                  <b>v{e.version}</b>
+                  <span>{e.date}</span>
+                  {e.version === __APP_VERSION__ ? <span className="cur">当前</span> : null}
+                </div>
+                <ul>
+                  {e.features.map((f, i) => (
+                    <li key={i}>{f}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

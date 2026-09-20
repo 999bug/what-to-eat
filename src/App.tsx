@@ -30,6 +30,44 @@ const NAV: readonly NavItem[] = [
 
 const TOAST_MS = 1800
 
+/** 周期性检查线上新版本的间隔：1 小时 */
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000
+/** 两次检查之间的最小间隔：切标签页/聚焦很频繁，避免每次都发请求 */
+const UPDATE_MIN_GAP_MS = 60 * 1000
+
+/**
+ * 新版本检测节奏（对齐 cycling-analyzer 的布置方式）：
+ * 加载时一次 + 每小时一次 + 切回标签页/窗口聚焦时一次。
+ * 本项目没有 Service Worker，检测到新版本只能提示用户刷新，不做静默接管。
+ */
+function useUpdateWatch() {
+  const checkUpdate = useAppStore((s) => s.checkUpdate)
+
+  useEffect(() => {
+    let last = 0
+    const run = () => {
+      const now = Date.now()
+      if (now - last < UPDATE_MIN_GAP_MS) return
+      last = now
+      void checkUpdate()
+    }
+
+    run()
+    const timer = window.setInterval(run, UPDATE_CHECK_INTERVAL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') run()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [checkUpdate])
+}
+
 function Toast() {
   const toast = useAppStore((s) => s.toast)
   const hideToast = useAppStore((s) => s.hideToast)
@@ -77,6 +115,8 @@ export default function App() {
   useEffect(() => {
     if (!hasCandidates) refreshCandidates()
   }, [hasCandidates, refreshCandidates])
+
+  useUpdateWatch()
 
   const cur = NAV.find((n) => n.id === view) ?? NAV[0]
 
