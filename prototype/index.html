@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>今天吃什么 · 原型预览</title>
+<style>
+  :root { --bg:#101214; --surface:#171A1F; --surface2:#1E2228; --border:#2A2F37; --text:#E6E8EB; --text2:#98A0AA; --accent:#E8833A; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-size:14px; }
+  header { display:flex; align-items:center; gap:16px; padding:12px 18px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  h1 { font-size:16px; font-weight:600; margin:0; }
+  .desc { font-size:12px; color:var(--text2); }
+  .devs { display:flex; gap:6px; margin-left:auto; }
+  .devs button { padding:6px 12px; border-radius:999px; border:1px solid var(--border);
+    background:var(--surface2); color:var(--text2); font-size:13px; }
+  .devs button.on { border-color:var(--accent); color:var(--accent); background:rgba(232,131,58,.14); }
+  .stage { display:flex; justify-content:center; padding:18px; }
+  .frame { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  iframe { border:0; display:block; transform-origin: top left; background:#101214; }
+  footer { padding:0 18px 18px; font-size:12px; color:var(--text2); line-height:1.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>今天吃什么 · 交互原型</h1>
+  <span class="desc">v1 范围：抽签选菜 + 三餐记录月历 + 热量估算（不出菜谱做法）</span>
+  <div class="devs">
+    <button data-w="390" data-h="844" class="on">手机 390</button>
+    <button data-w="834" data-h="1112">平板 834</button>
+    <button data-w="1440" data-h="900">桌面 1440</button>
+  </div>
+</header>
+
+<div class="stage" id="stage">
+  <div class="frame" id="frame"><iframe id="view" src="app.html"></iframe></div>
+</div>
+
+<footer>
+  直接点击画面即可交互：切餐次 → 选菜系 → 点「今天吃什么」→ 结果卡「就吃这个」→ 到「日历」查看当天三餐。<br>
+  示例数据为确定性生成，可在「设置」里重置或清空；数据存于浏览器本地（file:// 下可能被浏览器限制持久化，不影响演示）。
+</footer>
+
+<script>
+  var iframe = document.getElementById('view');
+  var frame = document.getElementById('frame');
+  var stage = document.getElementById('stage');
+  var cur = { w: 390, h: 844 };
+
+  function fit() {
+    var availW = stage.clientWidth - 4;
+    var availH = window.innerHeight - 150;
+    var s = Math.min(availW / cur.w, availH / cur.h, 1);
+    iframe.style.width = cur.w + 'px';
+    iframe.style.height = cur.h + 'px';
+    iframe.style.transform = 'scale(' + s + ')';
+    frame.style.width = (cur.w * s) + 'px';
+    frame.style.height = (cur.h * s) + 'px';
+  }
+
+  document.querySelectorAll('.devs button').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('.devs button').forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      cur = { w: +b.dataset.w, h: +b.dataset.h };
+      fit();
+    };
+  });
+
+  window.addEventListener('resize', fit);
+  fit();
+</script>
+</body>
+</html>
