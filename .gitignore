@@ -1,6 +1,18 @@
 # 依赖与构建产物
 node_modules/
 dist/
+*.tsbuildinfo
+
+# 代码索引 / 缓存目录
+.codegraph/
+
+# 工作区数据（笔记单独放行；父目录被排除时子目录取反需逐层写）
+.workbuddy/*
+!.workbuddy/memory/
+!.workbuddy/memory/**
+
+# 并行会话临时目录（约定见 AGENTS.md，严禁 git add）
+.tmp/
 
 # IDE
 .idea/
