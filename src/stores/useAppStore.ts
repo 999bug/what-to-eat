@@ -5,6 +5,7 @@
  */
 import { create } from 'zustand'
 import type {
+  CustomDish,
   Dish,
   DishLevel,
   Filters,
@@ -17,12 +18,14 @@ import type {
 import { loadItem, saveItem } from '@/lib/storage'
 import { todayStr, monthOf, prettyDate } from '@/lib/date'
 import { pickCandidates, pickWeighted, poolForMeal } from '@/lib/pool'
+import { customToDishes, mergeCustomDishes, normalizeCustom, readCustomDishes } from '@/lib/custom'
 import { fetchRemoteVersion, isNewer } from '@/lib/version'
 import { mealName } from '@/data/meta'
 import { seedRecords } from '@/data/seed'
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'light',
+  // 默认跟随系统（PRD §6.2 暗色优先：主使用场景是饭点，暗色更舒适）
+  theme: 'auto',
   midnight: false,
   serving: 1,
   goalOn: false,
@@ -41,6 +44,9 @@ const initialRecords = (): MealRecord[] => {
   return seeded
 }
 
+/** 自定义菜品（localStorage wte:v1:customDishes）：容错读取，脏数据不阻塞页面 */
+const initialCustomDishes = (): CustomDish[] => readCustomDishes(loadItem<unknown>('customDishes', []))
+
 export interface AppState {
   // ---- 会话态 ----
   view: ViewId
@@ -56,6 +62,10 @@ export interface AppState {
   pickDate: string
   pickMeal: MealId
   pickQuery: string
+  /** 手动录入菜品面板是否展开（补录面板内） */
+  customFormOpen: boolean
+  /** 正在编辑的自定义菜品 id；null = 新建 */
+  editingCustomId: string | null
   /** 轻提示（1.8s 自动消失） */
   toast: { id: number; msg: string } | null
   /** 远端检测到的新版本（null = 无更新或尚未检测） */
@@ -65,6 +75,8 @@ export interface AppState {
   records: MealRecord[]
   settings: Settings
   favorites: string[]
+  /** 用户自定义菜品（参与抽取池，与内置菜库同口径过滤） */
+  customDishes: CustomDish[]
 
   // ---- actions ----
   nav: (v: ViewId) => void
@@ -73,6 +85,8 @@ export interface AppState {
   toggleTag: (t: string) => void
   toggleLevel: (l: DishLevel) => void
   toggleAvoid: (a: string) => void
+  /** 清空忌口（空候选时的出路之一） */
+  clearAvoid: () => void
   clearFilters: () => void
   setMode: (m: 'wheel' | 'lots') => void
   refreshCandidates: () => void
@@ -91,6 +105,15 @@ export interface AppState {
   addRecord: (dish: Dish, date: string, meal: MealId, source: RecordSource) => void
   deleteRecord: (id: string) => void
   toggleFavorite: (dishId: string) => void
+  /** 打开／收起手动录入表单；传入 id 表示编辑既有菜品 */
+  openCustomForm: (id?: string) => void
+  closeCustomForm: () => void
+  /** 新增自定义菜品；返回新建的菜品（供调用方决定是否补记一条记录） */
+  addCustomDish: (input: CustomDishInput) => CustomDish
+  /** 保存编辑（保持 id 不变，历史记录仍指向同一道菜） */
+  updateCustomDish: (id: string, input: CustomDishInput) => void
+  /** 删除自定义菜品（历史记录保留，只从菜库移除） */
+  deleteCustomDish: (id: string) => void
   setSelDate: (d: string) => void
   shiftMonth: (delta: number) => void
   goThisMonth: () => void
@@ -123,6 +146,18 @@ export function mealByTime(midnight: boolean): MealId {
   return midnight ? 'm' : 'd'
 }
 
+/** 手动录入的原始输入（组件只负责收集，规范化在 lib/custom.ts） */
+export interface CustomDishInput {
+  name: string
+  icon?: string
+  kcal?: number | null
+  cuisines?: string[]
+  meals?: MealId[]
+  ingredients?: string
+  tags?: string[]
+  level?: DishLevel
+}
+
 const initialSettings = (): Settings => ({
   ...DEFAULT_SETTINGS,
   ...loadItem<Partial<Settings>>('settings', {}),
@@ -134,7 +169,14 @@ export const useAppStore = create<AppState>((set, get) => {
   /** 组合当前筛选条件的候选池（多处复用） */
   const currentPool = () => {
     const s = get()
-    return poolForMeal(s.meal, s.filters.cuisines, s.filters.tags, s.settings.avoid, s.filters.levels)
+    return poolForMeal(
+      s.meal,
+      s.filters.cuisines,
+      s.filters.tags,
+      s.settings.avoid,
+      s.filters.levels,
+      customToDishes(s.customDishes),
+    )
   }
 
   return {
@@ -150,12 +192,15 @@ export const useAppStore = create<AppState>((set, get) => {
     pickDate: todayStr(),
     pickMeal: 'l',
     pickQuery: '',
+    customFormOpen: false,
+    editingCustomId: null,
     toast: null,
     updateVersion: null,
 
     records: initialRecords(),
     settings: settings0,
     favorites: loadItem<string[]>('favorites', []),
+    customDishes: initialCustomDishes(),
 
     nav: (v) => {
       set({ view: v, result: null, shownIds: [] })
@@ -192,6 +237,13 @@ export const useAppStore = create<AppState>((set, get) => {
       const cur = get().settings.avoid
       const next = cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a]
       const settings = { ...get().settings, avoid: next }
+      saveItem('settings', settings)
+      set({ settings, result: null, shownIds: [] })
+      get().refreshCandidates()
+    },
+
+    clearAvoid: () => {
+      const settings = { ...get().settings, avoid: [] }
       saveItem('settings', settings)
       set({ settings, result: null, shownIds: [] })
       get().refreshCandidates()
@@ -255,6 +307,7 @@ export const useAppStore = create<AppState>((set, get) => {
         s.filters.tags,
         s.settings.avoid,
         s.filters.levels,
+        customToDishes(s.customDishes),
       )
       const d = pickWeighted(pool, s.records, s.favorites, s.settings.dedupe, [])
       if (!d) {
@@ -268,6 +321,8 @@ export const useAppStore = create<AppState>((set, get) => {
     addRecord: (dish, date, meal, source) => {
       const s = get()
       const servings = s.settings.serving || 1
+      // 自定义菜品未填热量时 kcalKnown=false：kcal 记 0，统计侧不把它算进日均分母
+      const kcalKnown = dish.kcalKnown !== false
       const rec: MealRecord = {
         id: 'r' + Date.now() + Math.floor(Math.random() * 1000),
         date,
@@ -277,7 +332,8 @@ export const useAppStore = create<AppState>((set, get) => {
         icon: dish.icon,
         cuisine: dish.cuisines[0],
         servings,
-        kcal: Math.round(dish.kcal * servings),
+        kcal: kcalKnown ? Math.round(dish.kcal * servings) : 0,
+        kcalKnown,
         source,
         createdAt: new Date().toISOString(),
       }
@@ -299,6 +355,47 @@ export const useAppStore = create<AppState>((set, get) => {
         : [...cur, dishId]
       saveItem('favorites', favorites)
       set({ favorites })
+    },
+
+    /* ---------- 自定义菜品 ---------- */
+
+    openCustomForm: (id) => set({ customFormOpen: true, editingCustomId: id ?? null }),
+    closeCustomForm: () => set({ customFormOpen: false, editingCustomId: null }),
+
+    addCustomDish: (input) => {
+      const dish = normalizeCustom(input)
+      const customDishes = [...get().customDishes, dish]
+      saveItem('customDishes', customDishes)
+      set({ customDishes })
+      // 菜库变了，候选池要跟着刷新，否则新菜抽不到
+      get().refreshCandidates()
+      return dish
+    },
+
+    updateCustomDish: (id, input) => {
+      const customDishes = get().customDishes.map((c) =>
+        c.id === id
+          ? // 保留原 id 与 createdAt：历史记录靠 id 关联，改了就会失联
+            normalizeCustom(input, c.id, c.createdAt)
+          : c,
+      )
+      saveItem('customDishes', customDishes)
+      set({ customDishes })
+      get().refreshCandidates()
+    },
+
+    deleteCustomDish: (id) => {
+      const customDishes = get().customDishes.filter((c) => c.id !== id)
+      saveItem('customDishes', customDishes)
+      // 顺手清掉收藏与「已展示」里的引用，避免脏 id 影响去重
+      const favorites = get().favorites.filter((f) => f !== id)
+      saveItem('favorites', favorites)
+      set({
+        customDishes,
+        favorites,
+        shownIds: get().shownIds.filter((s) => s !== id),
+      })
+      get().refreshCandidates()
     },
 
     setSelDate: (d) => set({ selDate: d }),
@@ -343,7 +440,18 @@ export const useAppStore = create<AppState>((set, get) => {
     exportData: () => {
       const s = get()
       const blob = new Blob(
-        [JSON.stringify({ records: s.records, settings: s.settings, favorites: s.favorites }, null, 2)],
+        [
+          JSON.stringify(
+            {
+              records: s.records,
+              settings: s.settings,
+              favorites: s.favorites,
+              customDishes: s.customDishes,
+            },
+            null,
+            2,
+          ),
+        ],
         { type: 'application/json' },
       )
       const url = URL.createObjectURL(blob)
@@ -361,14 +469,21 @@ export const useAppStore = create<AppState>((set, get) => {
           records?: MealRecord[]
           settings?: Partial<Settings>
           favorites?: string[]
+          customDishes?: unknown
         }
-        const settings = { ...DEFAULT_SETTINGS, ...(o.settings ?? get().settings) }
+        const settings: Settings = { ...DEFAULT_SETTINGS, ...(o.settings ?? get().settings) }
         const records = o.records ?? get().records
         const favorites = o.favorites ?? get().favorites
+        // 旧备份没有 customDishes 字段：保留本地已有的，不能清空
+        const customDishes =
+          o.customDishes === undefined
+            ? get().customDishes
+            : mergeCustomDishes(get().customDishes, readCustomDishes(o.customDishes))
         saveItem('records', records)
         saveItem('settings', settings)
         saveItem('favorites', favorites)
-        set({ records, settings, favorites })
+        saveItem('customDishes', customDishes)
+        set({ records, settings, favorites, customDishes })
         get().showToast('导入成功')
         get().refreshCandidates()
       } catch {

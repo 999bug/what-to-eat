@@ -2,22 +2,26 @@
  * 应用外壳：侧栏（平板/桌面） / 底部 Tab（手机） + 主区 + 弹层 + 轻提示。
  * 只做导航与主题，业务状态全部来自 store。
  */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/stores/useAppStore'
 import { applyTheme } from '@/theme'
 import { SheetHost } from '@/components/Sheets'
+import { VersionNote } from '@/components/VersionNote'
 import { DrawPage } from '@/pages/DrawPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { prettyDate, todayStr } from '@/lib/date'
+import { isMobileWidth } from '@/lib/device'
+import { haptics } from '@/lib/haptics'
+import { mealName } from '@/data/meta'
 import type { ViewId } from '@/types'
 
 interface NavItem {
   id: ViewId
   name: string
   ico: string
-  /** 顶部副标题 */
+  /** 顶部副标题（仅平板/桌面展示；手机端顶栏空间有限，只留日期与餐次） */
   sub: string
 }
 
@@ -94,12 +98,28 @@ function View() {
   return <DrawPage />
 }
 
+/** 手机端是否展示（<768px），随窗口变化实时更新 */
+function useMobile(): boolean {
+  const [mobile, setMobile] = useState(() => isMobileWidth())
+  useEffect(() => {
+    const mq = window.matchMedia?.('(max-width: 767px)')
+    if (!mq) return
+    const onChange = () => setMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return mobile
+}
+
 export default function App() {
   const view = useAppStore((s) => s.view)
   const nav = useAppStore((s) => s.nav)
   const theme = useAppStore((s) => s.settings.theme)
+  const meal = useAppStore((s) => s.meal)
+  const midnight = useAppStore((s) => s.settings.midnight)
   const refreshCandidates = useAppStore((s) => s.refreshCandidates)
   const hasCandidates = useAppStore((s) => s.candidates.length > 0)
+  const mobile = useMobile()
 
   // 主题变化时落到 <html>，auto 模式监听系统切换
   useEffect(() => {
@@ -120,6 +140,13 @@ export default function App() {
 
   const cur = NAV.find((n) => n.id === view) ?? NAV[0]
 
+  // 手机端顶栏只放「视图名 + 日期（抽签页再带当前餐次）」，
+  // 原来的长副标题在 390px 下会被裁切。
+  const mobileSub =
+    view === 'draw'
+      ? `${prettyDate(todayStr())}${!midnight && meal === 'm' ? '' : ' · ' + mealName(meal)}`
+      : prettyDate(todayStr())
+
   return (
     <div className="app">
       <nav className="rail" aria-label="主导航">
@@ -135,17 +162,21 @@ export default function App() {
             <span className="lab">{n.name}</span>
           </button>
         ))}
+        {/* 版本说明固定贴左侧栏底部（手机端另有一份收起态） */}
+        <VersionNote />
       </nav>
 
-      <main className="main">
+      <main className={'main' + (mobile ? ' main-mobile' : '')}>
         <div className="wrap">
           <div className="topbar">
             <h1>{cur.name}</h1>
             <span className="sub">
-              {cur.sub} · {prettyDate(todayStr())}
+              {mobile ? mobileSub : `${cur.sub} · ${prettyDate(todayStr())}`}
             </span>
           </div>
           <View />
+          {/* 手机端侧栏隐藏，版本说明落到内容流末尾（默认收起，点开才展开） */}
+          {mobile ? <VersionNote /> : null}
         </div>
       </main>
 
@@ -154,7 +185,10 @@ export default function App() {
           <button
             key={n.id}
             className={view === n.id ? 'on' : ''}
-            onClick={() => nav(n.id)}
+            onClick={() => {
+              haptics.tap()
+              nav(n.id)
+            }}
             aria-current={view === n.id ? 'page' : undefined}
           >
             <span className="ico">{n.ico}</span>

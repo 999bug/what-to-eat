@@ -38,6 +38,29 @@ export interface Dish {
   spicy: boolean
   /** 菜名 + 食材拼接，供补录搜索 */
   haystack: string
+  /**
+   * 热量是否为已知值：内置菜库一律 true；
+   * 用户自定义菜品热量可留空，此时为 false（kcal 记 0，统计口径见 lib/stats.ts）。
+   */
+  kcalKnown?: boolean
+  /** 是否用户自定义菜品（用于我的菜品管理与统计提示） */
+  custom?: boolean
+}
+
+/** 用户自定义菜品（localStorage 持久化，可编辑/删除） */
+export interface CustomDish {
+  /** 唯一标识，形如 c<时间戳>，与内置菜库的 dN 不冲突 */
+  id: string
+  name: string
+  icon: string
+  /** 单人份热量；null = 用户未填，按「未知」处理 */
+  kcal: number | null
+  cuisines: string[]
+  meals: MealId[]
+  ingredients: string
+  tags: string[]
+  level: DishLevel
+  createdAt: string
 }
 
 /** 一条用餐记录（一份菜 × 一次餐次） */
@@ -55,13 +78,19 @@ export interface MealRecord {
   servings: number
   /** 估算热量 = 菜品 kcal × servings，取整 */
   kcal: number
+  /**
+   * 该条热量是否已知。
+   * 自定义菜品未填热量时为 false：kcal 记 0，但**不参与日均热量的分母**
+   * （避免把未知当 0，把日均拉低）。老数据无此字段时按已知处理。
+   */
+  kcalKnown?: boolean
   source: RecordSource
   createdAt: string
 }
 
 /** 用户设置（localStorage 持久化） */
 export interface Settings {
-  /** 主题：light 浅色（默认）/ dark 深色 / auto 跟随系统 */
+  /** 主题：auto 跟随系统（默认）/ light 浅色 / dark 深色 */
   theme: 'light' | 'dark' | 'auto'
   /** 显示夜宵（默认关闭） */
   midnight: boolean

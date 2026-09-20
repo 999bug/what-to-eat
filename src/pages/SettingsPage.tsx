@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { useAppStore } from '@/stores/useAppStore'
 import { AVOID_META } from '@/data/meta'
 import { CHANGELOG } from '@/changelog/changelogData'
+import { MyDishesCard } from '@/components/MyDishes'
 import logoUrl from '@/assets/logo.png'
 
 export function SettingsPage() {
@@ -43,8 +44,7 @@ export function SettingsPage() {
       </div>
 
       <div className="card">
-        <div className="card-t">抽签偏好</div>
-        <div className="field">
+        <div className="card-t">抽签偏好</div>        <div className="field">
           <div className="k">
             显示夜宵
             <small>关闭后餐次与日历不再出现夜宵</small>
@@ -131,6 +131,8 @@ export function SettingsPage() {
           热量为基于常见食物成分表的估算值，受食材分量与烹饪方式影响较大，仅供参考，不构成营养或医学建议。
         </p>
       </div>
+
+      <MyDishesCard />
 
       <div className="card">
         <div className="card-t">数据</div>

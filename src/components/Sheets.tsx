@@ -5,6 +5,9 @@ import { AVOID_META, CUISINES, LEVEL_META, TAG_META } from '@/data/meta'
 import { DISHES } from '@/data/dishes'
 import { mealName, levelName } from '@/data/meta'
 import { CHANGELOG } from '@/changelog/changelogData'
+import { CustomDishForm } from '@/components/CustomDishForm'
+import { customToDishes } from '@/lib/custom'
+import { haptics } from '@/lib/haptics'
 
 export function SheetHost() {
   const sheet = useAppStore((s) => s.sheet)
@@ -116,11 +119,48 @@ function PickSheet() {
   const closeSheet = useAppStore((s) => s.closeSheet)
   const addRecord = useAppStore((s) => s.addRecord)
   const pickDate = useAppStore((s) => s.pickDate)
+  const customDishes = useAppStore((s) => s.customDishes)
+  const customFormOpen = useAppStore((s) => s.customFormOpen)
+  const openCustomForm = useAppStore((s) => s.openCustomForm)
+  const closeCustomForm = useAppStore((s) => s.closeCustomForm)
 
   const q = pickQuery.trim()
-  const hits = DISHES.filter(
-    (d) => d.meals.includes(pickMeal) && (q === '' || d.haystack.includes(q)),
-  ).slice(0, 60)
+  // 内置菜库 + 自定义菜品一起搜，用户自己加的菜也要能补录
+  const all = [...DISHES, ...customToDishes(customDishes)]
+  const hits = all
+    .filter((d) => d.meals.includes(pickMeal) && (q === '' || d.haystack.includes(q)))
+    .slice(0, 60)
+
+  // 搜不到时给一条顺手的出路：把搜索词直接带进手动录入表单
+  const noHit = q !== '' && hits.length === 0
+
+  if (customFormOpen) {
+    return (
+      <div className="sheet-mask" onClick={closeSheet}>
+        <div className="sheet" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet-head">
+            <h3>手动添加菜品</h3>
+            <button className="btn btn-sm btn-ghost" onClick={closeCustomForm}>
+              返回列表
+            </button>
+          </div>
+          <CustomDishForm
+            onSaved={(dish) => {
+              // 新建完直接记入当前补录的日期与餐次，省一次点击
+              addRecord(
+                customToDishes([dish])[0],
+                pickDate,
+                pickMeal,
+                'manual',
+              )
+              closeSheet()
+            }}
+            onCancel={closeCustomForm}
+          />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="sheet-mask" onClick={closeSheet}>
@@ -131,13 +171,24 @@ function PickSheet() {
             关闭
           </button>
         </div>
-        <input
-          className="search"
-          placeholder="搜索菜名或食材"
-          value={pickQuery}
-          onChange={(e) => setPickQuery(e.target.value)}
-          autoFocus
-        />
+        <div className="pick-tools">
+          <input
+            className="search"
+            placeholder="搜索菜名或食材"
+            value={pickQuery}
+            onChange={(e) => setPickQuery(e.target.value)}
+            autoFocus
+          />
+          <button
+            className="btn btn-sm"
+            onClick={() => {
+              haptics.tap()
+              openCustomForm()
+            }}
+          >
+            ＋ 新菜
+          </button>
+        </div>
         <div className="dish-list">
           {hits.map((d) => (
             <button
@@ -150,11 +201,26 @@ function PickSheet() {
             >
               <span className="ico">{d.icon}</span>
               <span className="nm">{d.name}</span>
+              {d.custom ? <span className="tagline">我的</span> : null}
               <span className="lvl">{levelName(d.level)}</span>
-              <span className="kk">{d.kcal} kcal</span>
+              <span className="kk">{d.kcalKnown === false ? '热量未知' : `${d.kcal} kcal`}</span>
             </button>
           ))}
-          {hits.length === 0 ? <div className="empty">没有匹配的菜</div> : null}
+          {hits.length === 0 ? (
+            <div className="empty">
+              {noHit ? `没有匹配的菜，把「${q}」加到菜库？` : '没有匹配的菜'}
+              <button
+                className="btn btn-sm btn-primary"
+                style={{ marginTop: 10 }}
+                onClick={() => {
+                  haptics.tap()
+                  openCustomForm()
+                }}
+              >
+                ＋ 手动添加「{noHit ? q : '新菜'}」
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

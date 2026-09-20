@@ -1,8 +1,13 @@
 /**
  * 全局样式。
  * 配色：暖米白底（#F5F1EA）+ 番茄红强调（#D6453D），深浅双主题；
- * 断点：<768 手机（底部 Tab）/ ≥768 平板（图标侧栏）/ ≥1200 桌面（双栏）。
+ * 断点：<768 手机（底部 Tab + 固定底部 CTA）/ ≥768 平板（图标侧栏）/ ≥1200 桌面（双栏）。
  * 约束：不使用渐变、不使用纯白底、不外链字体。
+ *
+ * 移动端约定（改这里前先读）：
+ * - 所有可点元素最小热区 44×44（见文件末尾 .tap-target 与各控件的 min-height）
+ * - 手机端主 CTA 固定在 .phone-dock，必须带 safe-area-inset-bottom
+ * - 尊重 prefers-reduced-motion，动效一律在末尾统一降级
  */
 
 :root {
@@ -14,7 +19,9 @@
   --border-strong: #cbbca6;
   --text: #2b2622;
   --text-2: #6b6157;
-  --text-3: #9a8f82;
+  /* 三级文字：原本 #9a8f82 在卡片上只有 3.10:1、在浅底上 2.67:1，属于「看不清」的元凶。
+     降到 #786d60 后 worst=4.26（浅底），正文尺寸也能过 AA。 */
+  --text-3: #786d60;
   --accent: #d6453d;
   --accent-ink: #ffffff;
   --accent-soft: rgba(214, 69, 61, 0.1);
@@ -34,7 +41,8 @@
   --border-strong: #4d453e;
   --text: #f2ede6;
   --text-2: #b4aba2;
-  --text-3: #8a8078;
+  /* 深色三级文字同理：原 #8a8078 在浅底上 3.67:1，正文偏虚；提到 #9c9288 → worst=4.64 */
+  --text-3: #9c9288;
   --accent: #e2594e;
   --accent-ink: #ffffff;
   --accent-soft: rgba(226, 89, 78, 0.16);
@@ -57,6 +65,9 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* 移动端：禁止横向滚动，消除橡皮筋回弹带来的「网页感」 */
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
 }
 
 button,
@@ -71,11 +82,42 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  /* 移动端：去掉 300ms 点击延迟与蓝色高亮块 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+/* 所有可点元素统一按压反馈——这是「像 App 而不是网页」的关键一招 */
+.btn:active,
+.chip:active,
+.fchip:active,
+.cal-cell:active,
+.cal-nav button:active,
+.rail-item:active,
+.tabbar button:active,
+.icon-btn:active,
+.dish-hit:active,
+.item .del:active,
+.sw:active {
+  transform: scale(0.97);
+}
+
+.btn,
+.chip,
+.cal-cell,
+.tabbar button,
+.icon-btn,
+.dish-hit {
+  transition:
+    transform 0.16s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .app {
@@ -184,7 +226,7 @@ button:disabled {
   align-items: center;
   gap: 2px;
   font-size: 11px;
-  color: var(--text-3);
+  color: var(--text-2);
   min-height: 52px;
 }
 
@@ -389,7 +431,7 @@ button:disabled {
 
 .hint {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   text-align: center;
 }
 
@@ -597,7 +639,7 @@ button:disabled {
 
 .empty {
   font-size: 13px;
-  color: var(--text-3);
+  color: var(--text-2);
   padding: 6px 0;
 }
 
@@ -636,7 +678,7 @@ button:disabled {
 
 .cal-dow {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   text-align: center;
   padding-bottom: 4px;
 }
@@ -691,7 +733,7 @@ button:disabled {
 
 .cal-cell .kc {
   font-size: 10px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -774,8 +816,13 @@ button:disabled {
 
 .goal-line {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   margin-top: 6px;
+}
+
+/* 数据不完整的提示：用警示色区分「说明文字」与「需要留意」 */
+.warn-line {
+  color: var(--warn);
 }
 
 /* ---------- 弹层 ---------- */
@@ -966,7 +1013,7 @@ input.search {
 
 .note {
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   line-height: 1.7;
   margin: 12px 0 0;
 }
@@ -1042,7 +1089,7 @@ input.search {
 .about .ver {
   margin-left: auto;
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1197,3 +1244,657 @@ input.search {
     display: none;
   }
 }
+
+/* ==========================================================================
+   移动端专用（<768px）
+   目标：核心动作一屏闭环 —— 吸顶餐次 + 已选条件 + 转盘吃满剩余高度 + 固定底部 CTA
+   ========================================================================== */
+
+/* 已选条件行：替代首屏的 12 个横向滚动 chip，消除滑动冲突 */
+.fchip-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 0 10px;
+  /* 与下方卡片间距对齐 */
+  margin-top: -4px;
+}
+
+.fchip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.fchip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  /* 热区对齐 44px：这是首屏唯一的筛选入口，必须好点 */
+  min-height: 44px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.fchip .x {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.fchip.ghost {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+
+/* 忌口这类不可删除的条件用中性色，避免误以为能点掉 */
+.fchip.static {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+
+/* 手机端顶部工具图标（清筛选 / 切玩法） */
+.wheel-tools {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.icon-btn.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 转盘整体可点即抽，扩大命中区（仅手机端由 JS 挂 onClick） */
+.wheel-tap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* 固定底部 CTA：永远在首屏可见，带安全区 */
+.phone-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 底部 Tab 高度 + 安全区 */
+  bottom: calc(60px + env(safe-area-inset-bottom));
+  z-index: 35;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+}
+
+.phone-dock .cta {
+  width: 100%;
+  max-width: 560px;
+  min-height: 52px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 17px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.16s ease;
+}
+
+.phone-dock .cta:active {
+  transform: scale(0.97);
+}
+
+/* 底栏上方留出 dock 与 CTA 的空间，避免内容被挡 */
+.main-mobile {
+  padding-bottom: calc(146px + env(safe-area-inset-bottom)) !important;
+}
+
+/* 顶栏：手机端副标题只放日期，禁止换行与溢出 */
+.main-mobile .topbar {
+  margin-bottom: 12px;
+}
+
+.main-mobile .topbar .sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* 餐次分段控件：吃满宽度、热区达标、吸顶 */
+.card-meals-mobile {
+  padding: 8px;
+  margin-bottom: 10px;
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.card-meals-mobile .meals {
+  padding: 3px;
+}
+
+.card-meals-mobile .meals button {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+/* 转盘卡：手机端让它吃满剩余高度，视觉重心居中 */
+.card-wheel-mobile {
+  min-height: calc(100vh - 400px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.card-wheel-mobile .card,
+.card-wheel-mobile .wheel-box {
+  width: 100%;
+}
+
+.card-wheel-mobile .wheel-box {
+  flex: 1;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* 结果底部 Sheet：转盘仍露出一半，动线连续 */
+.rsheet-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 14, 0.42);
+  z-index: 60;
+  animation: fade 0.2s ease-out;
+}
+
+.rsheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 65;
+  /* 结果面板必须完全不透：转盘在背后转，半透明会让正文糊成一片 */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  padding: 0 16px calc(14px + env(safe-area-inset-bottom));
+  max-height: 76vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 32px rgba(20, 16, 14, 0.3);
+  animation: sheet-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  /* 承载手势，禁止浏览器接管纵向滑动 */
+  touch-action: pan-y;
+  isolation: isolate;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* 下拉关闭的视觉抓手 */
+.rsheet-grabber {
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  margin: 8px auto 12px;
+}
+
+/* Sheet 内的结果卡：不再重复画一整张卡（边框+强调底色叠两层很脏），
+   只保留一层浅底把「正文区」从面板底色里分出来，靠底色差而不是透明度分层。 */
+.rsheet .result {
+  border: none;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin: 0;
+  animation: none;
+}
+
+/* Sheet 内正文提到最高对比度：面板只露一次，用户要盯着这几行看，不能虚 */
+.rsheet .result .rmeta,
+.rsheet .result .ring {
+  color: var(--text);
+}
+
+.rsheet .result .rmeta {
+  margin-top: 8px;
+}
+
+.rsheet .result .rname {
+  font-size: 21px;
+}
+
+/* Sheet 内按钮热区放宽到 44 */
+.rsheet .result .acts .btn {
+  min-height: 46px;
+  font-size: 15px;
+}
+
+/* ---------- 触控热区补齐：手机端所有可点元素 ≥ 44×44 ---------- */
+@media (max-width: 767px) {
+  .btn {
+    min-height: 44px;
+  }
+  .btn-sm {
+    min-height: 44px;
+    padding: 6px 14px;
+  }
+
+  .chip {
+    min-height: 44px;
+    padding: 8px 14px;
+  }
+
+  .cal-nav button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .item .del {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 20px;
+  }
+
+  .dish-hit {
+    min-height: 56px;
+  }
+
+  select,
+  input[type='text'],
+  input[type='number'],
+  input[type='search'],
+  input.search {
+    min-height: 44px;
+  }
+
+  .sw {
+    width: 50px;
+    height: 30px;
+  }
+
+  .sw::after {
+    width: 24px;
+    height: 24px;
+  }
+
+  .sw.on::after {
+    left: 22px;
+  }
+
+  /* 手机端弹层：底部 Sheet 全宽，圆角只在顶部 */
+  .sheet {
+    border-radius: 20px 20px 0 0;
+    max-height: 88vh;
+  }
+
+  /* 补录搜索聚焦时改为接近全屏，避免键盘把列表压没 */
+  .sheet:focus-within {
+    max-height: 92vh;
+  }
+
+  /* 轻提示上移，避开底部 dock */
+  .toast {
+    bottom: calc(150px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ==========================================================================
+   手动录入菜品（.cform / .mydish）
+   目标：菜名一个输入框就能存下来，其余选项折叠进「更多选项」
+   ========================================================================== */
+.cform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cform-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 图标与菜名同一行，视觉上像「一个输入框」 */
+.ico-pick {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.cform-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.cform-kcal {
+  width: 130px;
+  flex: none;
+}
+
+.cform-unit {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.cform-hint {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.cform-warn {
+  font-size: 12px;
+  color: var(--warn);
+  margin: 0;
+}
+
+.cform-acts {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 「更多选项」占据左侧，保存动作靠右，符合从粗到细的填表动线 */
+.cform-acts .btn:first-child {
+  margin-right: auto;
+}
+
+.cform-more {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.cform-sec .lb {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+
+.ico-chip {
+  font-size: 17px;
+  min-width: 44px;
+  padding: 6px 8px;
+}
+
+.cform-count {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* 我的菜品列表项：两行信息 + 右侧操作 */
+.mydish .ico {
+  font-size: 19px;
+  flex: none;
+  width: 26px;
+  text-align: center;
+}
+
+.mydish .myinfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mydish .nm {
+  font-size: 14px;
+}
+
+.mydish .sub {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-danger {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* 补录面板：搜索框与「＋ 新菜」并排 */
+.pick-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.pick-tools .search {
+  flex: 1;
+  min-width: 0;
+}
+
+.pick-tools .btn {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* 补录列表里的「我的」标记：和菜系徽章同色系，但用中性底避免与菜系抢视线 */
+.dish-hit .tagline {
+  flex: none;
+}
+
+/* ---------- 动效降级：尊重系统「减弱动态效果」 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .btn:active,
+  .chip:active,
+  .fchip:active,
+  .tabbar button:active,
+  .icon-btn:active,
+  .phone-dock .cta:active,
+  .cal-cell:active {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   左下角版本说明入口（.vernote）
+   - 平板/桌面：贴在侧栏最底部（.rail 是 flex 列，用 margin-top:auto 顶下去）
+   - 手机：默认收起，只露版本号一行小字；点开才露出「版本说明 / 查看更新日志」
+   ========================================================================== */
+.vernote {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-direction: column;
+  gap: 2px;
+  /* 手机端把「有新版本」绝对定位到胶囊上方，需要这个定位上下文 */
+  position: relative;
+  /* 手机端另有排布；平板以上由 min-width:768px 打开 */
+  display: none;
+}
+
+.vernote-btn,
+.vernote-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 12px;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.vernote-btn:hover,
+.vernote-open:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.vernote-lab {
+  opacity: 0.9;
+}
+
+.vernote-open {
+  /* 桌面端常驻；手机端由 .open 控制 */
+  display: none;
+}
+
+/* 有新版本：用强调色，其余保持中性，避免常年喧哗 */
+.vernote-upd {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  text-align: left;
+}
+
+/* 手机端：不做悬浮，改为跟着内容走的页脚行；默认收起成一行小字 */
+@media (max-width: 767px) {
+  .vernote {
+    display: flex;
+    /*
+     * 短屏（375×667）下转盘会吃满剩余高度，任何 fixed 角标都会压住转盘，
+     * 所以手机端不走悬浮：改为**内容流里的页脚行**，默认收起、点开才展开。
+     */
+    position: static;
+    margin: 4px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--border);
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  .vernote-btn {
+    /* 热区必须双达标：宽度也要 ≥44，纯文字「v1.0.1」只有 33px */
+    min-height: 44px;
+    min-width: 44px;
+    padding: 4px 6px;
+    margin-left: -6px;
+    white-space: nowrap;
+    width: auto;
+    gap: 6px;
+  }
+
+  /* 收起时只留版本号 */
+  .vernote-lab {
+    display: none;
+  }
+
+  .vernote.open .vernote-lab {
+    display: inline;
+  }
+
+  .vernote-open {
+    display: none;
+    padding: 4px 6px;
+    white-space: nowrap;
+    width: auto;
+    min-height: 44px;
+  }
+
+  .vernote.open .vernote-open {
+    display: flex;
+  }
+
+  .vernote-upd {
+    display: none;
+    white-space: nowrap;
+    min-height: 44px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+
+  /* 有新版本时默认就露出（这条比版本号更该被看到） */
+  .vernote.has-upd .vernote-upd {
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* 只有平板以上才显示在侧栏里 */
+@media (min-width: 768px) {
+  .vernote {
+    display: flex;
+  }
+
+  .vernote-open {
+    display: flex;
+  }
+}
+
+/* 平板窄侧栏（768–1199）：只显示版本号，点一下直接展开列表 */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .vernote-lab,
+  .vernote-open {
+    display: none;
+  }
+
+  .vernote-btn {
+    justify-content: center;
+    padding: 6px 2px;
+    font-size: 11px;
+    min-height: 40px;
+  }
+}
+

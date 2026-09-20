@@ -76,6 +76,15 @@ export function StatsPage() {
         <div className="goal-line">
           横轴为本月 1–{st.dim} 日，未记录的日期不显示柱体（估算值，仅供参考）
         </div>
+        {/*
+          热量未知的记录不计入日均分母，所以日均是「按已知热量那天算的」。
+          不提示的话用户会以为日均偏低，必须显式说明。
+        */}
+        {st.unknownCount > 0 ? (
+          <div className="goal-line warn-line">
+            另有 {st.unknownCount} 条记录（{st.unknownDays} 天）未填热量，已排除在日均之外
+          </div>
+        ) : null}
       </div>
 
       <div className="card">

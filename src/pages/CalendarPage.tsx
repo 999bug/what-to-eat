@@ -29,8 +29,7 @@ export function CalendarPage() {
             <div className="stat">
               <div className="v">{st.avg}</div>
               <div className="l">日均 kcal</div>
-            </div>
-            <div className="stat">
+            </div>            <div className="stat">
               <div className="v">{st.cover}%</div>
               <div className="l">三餐覆盖率</div>
             </div>
@@ -57,6 +56,12 @@ export function CalendarPage() {
               <div className="empty">本月还没有记录</div>
             )}
           </div>
+          {/* 有未填热量的记录时，日均只反映已知部分，要说明清楚 */}
+          {st.unknownCount > 0 ? (
+            <div className="goal-line warn-line">
+              另有 {st.unknownCount} 条记录（{st.unknownDays} 天）未填热量，未计入日均
+            </div>
+          ) : null}
         </div>
 
         <div className="hint">

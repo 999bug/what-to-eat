@@ -21,15 +21,22 @@ export function avoidHit(d: Dish, avoid: string[]): boolean {
   })
 }
 
-/** 按餐次与筛选条件构建候选池（levels 为空表示不限难度） */
+/**
+ * 按餐次与筛选条件构建候选池（levels 为空表示不限难度）。
+ *
+ * `extra` 用于把用户自定义菜品并入候选池——它们与内置菜库走**完全相同**的
+ * 餐次 / 菜系 / 口味 / 难度 / 忌口过滤，不享受任何特权，也不能绕过忌口。
+ */
 export function poolForMeal(
   meal: MealId,
   filterCuisines: string[],
   filterTags: string[],
   avoid: string[],
   filterLevels: DishLevel[] = [],
+  extra: Dish[] = [],
 ): Dish[] {
-  return DISHES.filter((d) => {
+  const source = extra.length > 0 ? [...DISHES, ...extra] : DISHES
+  return source.filter((d) => {
     if (!d.meals.includes(meal)) return false
     if (filterCuisines.length > 0 && !d.cuisines.some((c) => filterCuisines.includes(c))) return false
     if (filterTags.length > 0 && !filterTags.some((t) => d.tags.includes(t))) return false

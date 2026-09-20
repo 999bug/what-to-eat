@@ -1,6 +1,6 @@
 /** 当天三餐面板：按餐次分组列出记录，支持补录 / 就地抽一抽 / 删除（compact 模式隐藏操作，用于抽签页侧栏） */
 import { useAppStore } from '@/stores/useAppStore'
-import { activeMeals, dayKcal, recordsOn } from '@/lib/stats'
+import { activeMeals, dayKcal, recordsOn, unknownCountOn } from '@/lib/stats'
 import { prettyDate } from '@/lib/date'
 import { cuisineName, MEALS, mealName } from '@/data/meta'
 
@@ -23,6 +23,7 @@ export function DayPanel({ date, compact = false }: DayPanelProps) {
 
   const rs = recordsOn(records, date, meals)
   const total = dayKcal(records, date, meals)
+  const unknown = unknownCountOn(records, date, meals)
 
   return (
     <div className="card">
@@ -45,18 +46,23 @@ export function DayPanel({ date, compact = false }: DayPanelProps) {
           </span>
         </div>
       ) : (
-        <div className="hint left">当日合计 {total} kcal（估算）</div>
+        <div className="hint left">
+          当日合计 {total} kcal（估算）
+          {/* 有未填热量的记录时，合计只代表已知部分，必须说明 */}
+          {unknown > 0 ? `，另有 ${unknown} 条未填热量` : ''}
+        </div>
       )}
 
       <div className="day-groups">
         {MEALS.filter((m) => meals.includes(m.id)).map((m) => {
           const list = rs.filter((r) => r.meal === m.id)
           const sum = list.reduce((s, r) => s + r.kcal, 0)
+          const unk = list.filter((r) => r.kcalKnown === false).length
           return (
             <div key={m.id} className="meal-group">
               <div className="meal-head">
                 <span className="n">{mealName(m.id)}</span>
-                <span>{list.length > 0 ? sum + ' kcal' : ''}</span>
+                <span>{list.length > 0 ? (unk > 0 ? `${sum} kcal +${unk} 未知` : sum + ' kcal') : ''}</span>
               </div>
               {list.length === 0 ? (
                 <div className="empty">未记录</div>
@@ -70,7 +76,9 @@ export function DayPanel({ date, compact = false }: DayPanelProps) {
                         {cuisineName(r.cuisine)} · {r.servings} 份
                       </div>
                     </div>
-                    <span className="kcal">{r.kcal} kcal</span>
+                    <span className="kcal">
+                      {r.kcalKnown === false ? '热量未知' : `${r.kcal} kcal`}
+                    </span>
                     {compact ? null : (
                       <button
                         className="del"

@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>移动端方案演示 · 今天吃什么</title>
+<style>
+:root{
+  --bg:#1c1917; --surface:#262220; --surface-2:#2f2a27; --surface-3:#383230;
+  --border:#3a342f; --border-strong:#4d453e;
+  --text:#f2ede6; --text-2:#b4aba2; --text-3:#8a8078;
+  --accent:#e2594e; --accent-ink:#fff; --accent-soft:rgba(226,89,78,.16);
+  --ok:#7aa87f; --warn:#d8934a;
+  --r:16px; --r-sm:12px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:#0f0d0c;color:var(--text);
+  font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  font-size:15px;line-height:1.6;display:flex;flex-direction:column;align-items:center;
+  padding:24px 16px 40px;gap:20px;min-height:100%;
+}
+.stage-head{text-align:center;max-width:560px}
+.stage-head h1{font-size:18px;font-weight:600;margin:0 0 6px}
+.stage-head p{font-size:13px;color:var(--text-3);margin:0}
+
+/* ---------- 手机外框 ---------- */
+.phones{display:flex;gap:32px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.phone-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.phone-label{font-size:12px;color:var(--text-3)}
+.phone-label b{color:var(--accent);font-weight:600}
+.phone{
+  width:390px;height:844px;border-radius:44px;border:8px solid #2a2522;
+  background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);
+}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:30px;background:#2a2522;border-radius:0 0 18px 18px;z-index:60}
+.statusbar{height:46px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 4px;font-size:13px;font-weight:600;position:relative;z-index:50}
+.statusbar .right{display:flex;gap:5px;align-items:center;font-size:11px}
+
+/* ---------- 顶栏 ---------- */
+.topbar{flex:none;padding:2px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.topbar .title{font-size:17px;font-weight:600;letter-spacing:.2px}
+.topbar .date{font-size:12px;color:var(--text-3)}
+.icon-btn{
+  width:36px;height:36px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text-2);font-size:15px;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  transition:transform .16s ease, border-color .16s;
+}
+.icon-btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.icon-btn:active{transform:scale(.93)}
+
+/* ---------- 分段控件（吸顶） ---------- */
+.seg-wrap{flex:none;padding:0 16px 10px;background:var(--bg);position:relative;z-index:30}
+.seg{display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:3px}
+.seg button{
+  flex:1;min-height:38px;border:none;background:none;color:var(--text-2);
+  font-size:14px;border-radius:9px;font-family:inherit;cursor:pointer;
+  transition:background .18s,color .18s;
+}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:0 2px 8px rgba(226,89,78,.3)}
+
+/* ---------- 已选条件条 ---------- */
+.filters-bar{flex:none;padding:0 16px 8px;display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;position:relative;z-index:30}
+.filters-bar::-webkit-scrollbar{display:none}
+.fchip{
+  flex:none;display:inline-flex;align-items:center;gap:5px;padding:6px 10px;min-height:32px;
+  border-radius:999px;background:var(--accent-soft);border:1px solid var(--accent);
+  color:var(--accent);font-size:12.5px;white-space:nowrap;font-family:inherit;cursor:pointer;
+}
+.fchip .x{font-size:14px;line-height:1;opacity:.75}
+.fchip.ghost{background:var(--surface-2);border-color:var(--border);color:var(--text-2)}
+.fchip:active{transform:scale(.96)}
+
+/* ---------- 主区 ---------- */
+.stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;position:relative;overflow:hidden}
+.wheel-stage{position:relative;width:min(320px,78vw);aspect-ratio:1;flex:none}
+.wheel-stage canvas{width:100%;height:100%;display:block;transition:transform .4s cubic-bezier(.34,1.4,.64,1)}
+.wheel-stage.hit canvas{transform:scale(1.04)}
+.pin{position:absolute;left:50%;top:-3px;transform:translateX(-50%);width:0;height:0;
+  border-left:10px solid transparent;border-right:10px solid transparent;border-top:18px solid var(--accent);
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4))}
+.wheel-hint{margin-top:14px;font-size:12.5px;color:var(--text-3);text-align:center}
+.wheel-hint b{color:var(--text-2);font-weight:600}
+
+/* ---------- 底部固定 CTA ---------- */
+.bottom-dock{
+  flex:none;padding:10px 16px calc(10px + var(--safe-b));background:var(--bg);
+  border-top:1px solid var(--border);position:relative;z-index:30;
+}
+.cta{
+  width:100%;min-height:54px;border:none;border-radius:14px;background:var(--accent);
+  color:var(--accent-ink);font-size:17px;font-weight:600;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 6px 20px rgba(226,89,78,.32);transition:transform .16s ease,box-shadow .16s;
+}
+.cta:active{transform:scale(.97);box-shadow:0 3px 12px rgba(226,89,78,.28)}
+.cta:disabled{opacity:.6;box-shadow:none}
+
+/* ---------- 底部导航（独立版） ---------- */
+.tabbar{flex:none;display:flex;background:var(--surface);border-top:1px solid var(--border);padding-bottom:var(--safe-b)}
+.tabbar button{
+  flex:1;border:none;background:none;color:var(--text-3);font-family:inherit;cursor:pointer;
+  padding:8px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;min-height:54px;
+}
+.tabbar button .ico{font-size:19px;line-height:1}
+.tabbar button.on{color:var(--accent)}
+.tabbar button:active{opacity:.7}
+.home-bar{height:5px;width:134px;background:var(--text-3);border-radius:3px;margin:6px auto 8px;opacity:.45}
+
+/* ---------- 结果 Sheet（从下推入） ---------- */
+.sheet-backdrop{position:absolute;inset:0;background:rgba(15,13,12,0);z-index:70;pointer-events:none;transition:background .3s}
+.sheet-backdrop.open{background:rgba(15,13,12,.5);pointer-events:auto}
+.result-sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:80;background:var(--surface);
+  border-top:1px solid var(--border);border-radius:22px 22px 0 0;
+  padding:8px 16px calc(16px + var(--safe-b));
+  transform:translateY(102%);transition:transform .34s cubic-bezier(.32,.72,0,1);
+  box-shadow:0 -12px 40px rgba(0,0,0,.4);
+}
+.result-sheet.open{transform:translateY(0)}
+.grabber{width:38px;height:5px;border-radius:3px;background:var(--border-strong);margin:0 auto 14px}
+.rs-name{font-size:23px;font-weight:700;display:flex;align-items:center;gap:9px;flex-wrap:wrap;line-height:1.3}
+.pill{font-size:11.5px;font-weight:400;padding:2px 8px;border-radius:7px;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
+.pill.accent{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.rs-meta{font-size:13px;color:var(--text-2);margin-top:8px}
+.rs-meta .kcal{color:var(--accent);font-weight:600}
+.rs-acts{display:flex;gap:8px;margin-top:16px}
+.rs-acts .primary{
+  flex:2;min-height:48px;border:none;border-radius:12px;background:var(--accent);color:var(--accent-ink);
+  font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:transform .16s;
+}
+.rs-acts .secondary{
+  flex:1;min-height:48px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);
+  color:var(--text);font-size:14px;font-family:inherit;cursor:pointer;transition:transform .16s;
+}
+.rs-acts button:active{transform:scale(.96)}
+.rs-sub{display:flex;gap:8px;margin-top:8px}
+.rs-sub button{
+  flex:1;min-height:40px;border:1px solid var(--border);border-radius:10px;background:none;
+  color:var(--text-2);font-size:13px;font-family:inherit;cursor:pointer;
+}
+.rs-sub button:active{transform:scale(.97)}
+
+/* ---------- 标注 ---------- */
+.notes{max-width:560px;display:flex;flex-direction:column;gap:10px}
+.note-item{display:flex;gap:10px;font-size:13px;color:var(--text-2);line-height:1.65}
+.note-item .n{
+  flex:none;width:20px;height:20px;border-radius:6px;background:var(--accent-soft);
+  color:var(--accent);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px;
+}
+.badge-demo{position:absolute;top:52px;right:14px;z-index:55;font-size:10.5px;padding:3px 8px;border-radius:999px;background:rgba(226,89,78,.9);color:#fff;font-weight:600;letter-spacing:.3px}
+
+@media (max-width:880px){
+  .phones{flex-direction:column;align-items:center}
+  .phone{width:min(390px,92vw);height:min(844px,88vh)}
+}
+</style>
+</head>
+<body>
+
+<div class="stage-head">
+  <h1>移动端体验方案 · 演示原型</h1>
+  <p>同一套数据与抽取口径，重排为移动端布局。点击转盘或按钮试试手感。</p>
+</div>
+
+<div class="phones">
+
+  <!-- ============ 改造后 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-label"><b>改造后</b> · 一屏闭环</div>
+    <div class="phone" id="phone-new">
+      <div class="notch"></div>
+      <div class="statusbar"><span>16:45</span><span class="right">···· &nbsp;5G &nbsp;84%</span></div>
+      <div class="badge-demo">NEW</div>
+
+      <div class="topbar">
+        <div>
+          <div class="title">抽签</div>
+          <div class="date">9月20日 周日 · 晚餐</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="icon-btn on" id="mode-btn" title="切换玩法">🎡</button>
+          <button class="icon-btn" id="filter-btn" title="筛选">⚙︎</button>
+        </div>
+      </div>
+
+      <div class="seg-wrap">
+        <div class="seg" id="seg">
+          <button data-m="b">早餐</button>
+          <button data-m="l">午餐</button>
+          <button class="on" data-m="d">晚餐</button>
+        </div>
+      </div>
+
+      <div class="filters-bar">
+        <button class="fchip">全部菜库 <span class="x">×</span></button>
+        <button class="fchip ghost">忌口 2 项 <span class="x">×</span></button>
+      </div>
+
+      <div class="stage">
+        <div class="wheel-stage" id="wheel-stage">
+          <canvas id="wheel" width="640" height="640"></canvas>
+          <div class="pin"></div>
+        </div>
+        <div class="wheel-hint">候选 <b id="pool-n">128</b> 道 · 轻点转盘或下方按钮</div>
+      </div>
+
+      <div class="bottom-dock">
+        <button class="cta" id="cta">今天吃什么</button>
+      </div>
+      <div class="tabbar">
+        <button class="on"><span class="ico">🎲</span>抽签</button>
+        <button><span class="ico">📅</span>日历</button>
+        <button><span class="ico">📊</span>统计</button>
+        <button><span class="ico">⚙️</span>设置</button>
+      </div>
+      <div class="home-bar"></div>
+
+      <div class="sheet-backdrop" id="backdrop"></div>
+      <div class="result-sheet" id="rsheet">
+        <div class="grabber"></div>
+        <div class="rs-name" id="rs-name">🥘 红烧肉<span class="pill accent">家常菜</span><span class="pill">难度 3</span></div>
+        <div class="rs-meta" id="rs-meta">五花肉、冰糖、生抽、八角 · <span class="kcal">550 kcal</span> / 份（估算）</div>
+        <div class="rs-acts">
+          <button class="primary" id="accept">就吃这个</button>
+          <button class="secondary" id="again">换一个</button>
+        </div>
+        <div class="rs-sub">
+          <button>记入其他餐次</button>
+          <button id="fav">收藏</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 改造前 ============ -->
+  <div class="phone-wrap">
+    <div class="phone-label">改造前 · 3 屏、CTA 沉底、结果全屏遮罩</div>
+    <div class="phone" style="overflow:hidden">
+      <div class="notch"></div>
+      <div class="statusbar"><span>16:45</span><span class="right">···· &nbsp;5G &nbsp;84%</span></div>
+      <div style="flex:1;overflow:hidden;padding:0 12px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:12px">
+          <span style="font-size:19px;font-weight:600">抽签</span>
+          <span style="font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;flex:1;text-align:right">不知道吃什么就交给它 · 9月20日</span>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+          <div style="display:flex;gap:6px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:4px">
+            <span style="flex:1;text-align:center;padding:8px 4px;font-size:14px;color:var(--text-2)">早餐</span>
+            <span style="flex:1;text-align:center;padding:8px 4px;font-size:14px;color:var(--text-2)">午餐</span>
+            <span style="flex:1;text-align:center;padding:8px 4px;font-size:14px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600">晚餐</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:8px">按当前时间自动选中，可手动切换；菜库按餐次过滤</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span style="font-size:14px;font-weight:600">菜系</span>
+            <span style="font-size:12px;color:var(--text-2)">清除筛选</span>
+          </div>
+          <div style="display:flex;gap:8px;overflow:hidden">
+            <span style="flex:none;padding:6px 12px;border-radius:999px;background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent);font-size:13px">全部</span>
+            <span style="flex:none;padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px">家常菜</span>
+            <span style="flex:none;padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px">川菜</span>
+            <span style="flex:none;padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:13px">粤菜</span>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <span style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-2)">更多筛选</span>
+            <span style="padding:5px 10px;border:1px solid var(--accent);border-radius:10px;font-size:13px;background:var(--accent-soft);color:var(--accent)">转盘</span>
+            <span style="padding:5px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text-2)">抽签桶</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:10px">当前：全部菜库 · 惊喜模式</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px">
+          <div style="display:flex;justify-content:center;padding:6px 0">
+            <div style="position:relative;width:280px;aspect-ratio:1">
+              <canvas width="640" height="640" style="width:100%;height:100%" id="wheel-old"></canvas>
+              <div style="position:absolute;left:50%;top:0;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:16px solid var(--accent)"></div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-3);text-align:center;margin-top:6px">↓ 继续下滑才有按钮 ↓</div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--text-3);padding:16px 0">—— 以下内容需滑动 2 屏 ——</div>
+      </div>
+      <div class="tabbar">
+        <button class="on"><span class="ico">🎲</span>抽签</button>
+        <button><span class="ico">📅</span>日历</button>
+        <button><span class="ico">📊</span>统计</button>
+        <button><span class="ico">⚙️</span>设置</button>
+      </div>
+      <div class="home-bar"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="note-item"><span class="n">1</span><span><b>顶栏不再被裁切</b>：去掉「不知道吃什么就交给它 ·」长副标题，只留视图名 + 日期/当前餐次。</span></div>
+  <div class="note-item"><span class="n">2</span><span><b>菜系筛选进抽屉</b>：首屏不再有横向滚动的 12 个 chip，改用一行可删除的已选条件。</span></div>
+  <div class="note-item"><span class="n">3</span><span><b>转盘吃满剩余高度</b>：不再固定 300px，随屏幕自适应，视觉重心居中。</span></div>
+  <div class="note-item"><span class="n">4</span><span><b>CTA 固定底部</b>：不再需要滑动才能点到，安全区已预留。</span></div>
+  <div class="note-item"><span class="n">5</span><span><b>结果改为底部 Sheet</b>：转盘仍露出一半，动线连续；可下拉关闭。</span></div>
+  <div class="note-item"><span class="n">6</span><span><b>点击态压缩 + 触觉</b>：所有按钮 active 时 scale(.97)；真实实现里每经过一个扇区触发一次短振动。</span></div>
+</div>
+
+<script>
+/* ---------- 确定性 mock：与线上菜库同口径（名称/热量取自 src/data/dishes.ts） ---------- */
+const DISHES = [
+  ['红烧肉','🥘',550,'家常菜',3],['酸菜鱼','🐟',420,'川菜',3],['宫保鸡丁','🍗',430,'川菜',2],
+  ['白切鸡','🍗',380,'粤菜',2],['剁椒鱼头','🐟',360,'湘菜',3],['锅包肉','🥩',480,'东北菜',2],
+  ['番茄炒蛋','🍳',180,'家常菜',1],['蒜蓉西兰花','🥦',95,'家常菜',1],['芹菜炒香干','🥬',150,'家常菜',1],
+  ['美式汉堡','🍔',520,'外国菜',2],['玛格丽特披萨','🍕',560,'外国菜',2],['小鸡炖蘑菇','🍲',450,'东北菜',2]
+]
+const ING = {
+  '红烧肉':'五花肉、冰糖、生抽、八角','酸菜鱼':'草鱼片、酸菜、泡椒、花椒','宫保鸡丁':'鸡腿肉、花生米、干辣椒',
+  '白切鸡':'三黄鸡、姜、葱、沙姜','剁椒鱼头':'鲢鱼头、剁椒、姜、蒜','锅包肉':'猪里脊、淀粉、白醋、糖',
+  '番茄炒蛋':'番茄、鸡蛋、葱花、糖','蒜蓉西兰花':'西兰花、大蒜、蚝油','芹菜炒香干':'芹菜、香干、蒜',
+  '美式汉堡':'牛肉饼、面包、生菜、芝士','玛格丽特披萨':'面饼、番茄酱、马苏里拉','小鸡炖蘑菇':'土鸡、榛蘑、粉条、酱油'
+}
+const COLORS = ['#E2594E','#B93A33','#E06A5B','#A02E28','#E88A73','#8A2722','#F0AC98','#701D19']
+
+function drawWheel(canvas, items, rot, highlight){
+  const ctx = canvas.getContext('2d'); if(!ctx) return
+  const w = canvas.width, cx = w/2, r = w/2 - 10, n = items.length
+  ctx.clearRect(0,0,w,w); if(!n) return
+  const step = Math.PI*2/n
+  items.forEach((it,i)=>{
+    const a0 = -Math.PI/2 + rot + i*step
+    ctx.beginPath(); ctx.moveTo(cx,cx); ctx.arc(cx,cx,r,a0,a0+step); ctx.closePath()
+    ctx.fillStyle = COLORS[i%COLORS.length]
+    if(highlight === i){ ctx.save(); ctx.shadowColor='#fff'; ctx.shadowBlur=26 }
+    ctx.fill()
+    if(highlight === i) ctx.restore()
+    ctx.strokeStyle='rgba(0,0,0,.28)'; ctx.lineWidth=2; ctx.stroke()
+    ctx.save(); ctx.translate(cx,cx); ctx.rotate(a0+step/2)
+    ctx.textAlign='right'; ctx.textBaseline='middle'; ctx.fillStyle='#fff'
+    ctx.font='500 26px system-ui,"PingFang SC",sans-serif'
+    ctx.fillText(it[0].length>7?it[0].slice(0,7):it[0], r-26, 0)
+    ctx.restore()
+  })
+  ctx.beginPath(); ctx.arc(cx,cx,54,0,Math.PI*2); ctx.fillStyle='#1C1917'; ctx.fill()
+  ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=2; ctx.stroke()
+  ctx.fillStyle='#F5F1EA'; ctx.font='600 26px system-ui,"PingFang SC",sans-serif'
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('开抽',cx,cx)
+}
+
+/* ---------- 新布局交互 ---------- */
+const cv = document.getElementById('wheel')
+const items = DISHES.slice(0,8)
+let rot = 0, spinning = false
+drawWheel(cv, items, rot, -1)
+
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const stageEl = document.getElementById('wheel-stage')
+const cta = document.getElementById('cta')
+const backdrop = document.getElementById('backdrop')
+const rsheet = document.getElementById('rsheet')
+const rsName = document.getElementById('rs-name')
+const rsMeta = document.getElementById('rs-meta')
+
+/* 触觉：真实实现走 lib/haptics.ts 封装，无 API 时静默降级 */
+const buzz = (p) => { try { navigator.vibrate && navigator.vibrate(p) } catch(e){} }
+
+function spin(targetIdx){
+  if(spinning) return
+  spinning = true; cta.disabled = true; cta.textContent = '抽取中…'
+  const idx = targetIdx != null ? targetIdx : Math.floor(Math.random()*items.length)
+  const n = items.length, step = Math.PI*2/n
+  const desired = -(idx*step + step/2)
+  const cur = rot
+  const delta = (((desired-cur)%(Math.PI*2))+Math.PI*2)%(Math.PI*2)
+  const turns = reduced ? 1 : 5
+  const target = cur + turns*Math.PI*2 + delta
+  const dur = reduced ? 700 : 2600
+  const t0 = performance.now()
+  let lastSector = -1
+  const frame = (now) => {
+    const p = Math.min(1,(now-t0)/dur)
+    const eased = 1 - Math.pow(1-p,3)
+    rot = cur + (target-cur)*eased
+    drawWheel(cv, items, rot, -1)
+    /* 每跨过一个扇区边界震一下 */
+    const sec = Math.floor(rot/step)
+    if(sec !== lastSector){ lastSector = sec; if(p<0.92) buzz(8) }
+    if(p<1){ requestAnimationFrame(frame) }
+    else { spinning = false; cta.disabled = false; cta.textContent = '今天吃什么'; onHit(idx) }
+  }
+  requestAnimationFrame(frame)
+}
+
+function onHit(idx){
+  buzz([0,30,40,60])
+  const d = items[idx]
+  stageEl.classList.add('hit')
+  setTimeout(()=>stageEl.classList.remove('hit'), 420)
+  drawWheel(cv, items, rot, idx)
+  setTimeout(()=>drawWheel(cv, items, rot, -1), 900)
+  rsName.innerHTML = `${d[1]} ${d[0]}<span class="pill accent">${d[3]}</span><span class="pill">难度 ${d[4]}</span>`
+  rsMeta.innerHTML = `${ING[d[0]]} · <span class="kcal">${d[2]} kcal</span> / 份（估算）`
+  backdrop.classList.add('open'); rsheet.classList.add('open')
+}
+
+function closeSheet(){ backdrop.classList.remove('open'); rsheet.classList.remove('open') }
+
+cta.addEventListener('click', ()=>{ buzz(12); spin() })
+document.getElementById('wheel-stage').addEventListener('click', ()=>{ buzz(12); spin() })
+backdrop.addEventListener('click', closeSheet)
+document.getElementById('accept').addEventListener('click', ()=>{ buzz(12); closeSheet() })
+document.getElementById('again').addEventListener('click', ()=>{ buzz(12); closeSheet(); setTimeout(()=>spin(), 260) })
+
+/* 餐次切换 */
+document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click', ()=>{
+  buzz(8)
+  document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'))
+  b.classList.add('on')
+  const map = {b:41, l:136, d:128}
+  document.getElementById('pool-n').textContent = map[b.dataset.m] || 128
+  document.querySelector('.topbar .date').textContent =
+    '9月20日 周日 · ' + b.textContent
+}))
+
+/* 主区左右滑动切换餐次 */
+let tx = 0, ty = 0
+stageEl.addEventListener('touchstart', (e)=>{ tx = e.touches[0].clientX; ty = e.touches[0].clientY }, {passive:true})
+stageEl.addEventListener('touchend', (e)=>{
+  const dx = e.changedTouches[0].clientX - tx
+  const dy = e.changedTouches[0].clientY - ty
+  if(Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return
+  const btns = [...document.querySelectorAll('#seg button')]
+  const i = btns.findIndex(b=>b.classList.contains('on'))
+  const ni = dx < 0 ? Math.min(btns.length-1, i+1) : Math.max(0, i-1)
+  if(ni !== i){ btns[ni].click(); buzz(8) }
+}, {passive:true})
+
+/* 玩法图标切换 */
+let mode = 0
+document.getElementById('mode-btn').addEventListener('click', (e)=>{
+  buzz(8); mode = 1-mode
+  e.currentTarget.textContent = mode ? '🎴' : '🎡'
+})
+document.getElementById('filter-btn').addEventListener('click', (e)=>{ buzz(8); e.currentTarget.classList.toggle('on') })
+
+/* 旧布局的静态转盘 */
+drawWheel(document.getElementById('wheel-old'), DISHES.slice(0,8), 0.35, -1)
+</script>
+</body>
+</html>

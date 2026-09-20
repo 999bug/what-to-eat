@@ -5,6 +5,8 @@
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import type { Dish } from '@/types'
+import { prefersReducedMotion } from '@/lib/device'
+import { haptics } from '@/lib/haptics'
 
 export interface WheelHandle {
   /** 转动；传入 targetId 时转到指定那道菜（「换一个」用），不传则随机 */
@@ -22,6 +24,9 @@ const WHEEL_COLORS = ['#D6453D', '#B93A33', '#E06A5B', '#A02E28', '#E88A73', '#8
 const TAU = Math.PI * 2
 const SPIN_TURNS = 5 // 至少转满 5 圈
 const SPIN_MS = 2800
+/** 减弱动态效果时的降级参数 */
+const SPIN_TURNS_REDUCED = 1
+const SPIN_MS_REDUCED = 800
 
 export const Wheel = forwardRef<WheelHandle, WheelProps>(function Wheel({ items, onFinish }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -95,14 +100,26 @@ export const Wheel = forwardRef<WheelHandle, WheelProps>(function Wheel({ items,
       const desired = -(idx * step + step / 2)
       const cur = rotRef.current
       const delta = (((desired - cur) % TAU) + TAU) % TAU
-      const target = cur + SPIN_TURNS * TAU + delta
+      // 系统开启「减弱动态效果」时只转 1 圈、时长缩短
+      const reduced = prefersReducedMotion()
+      const turns = reduced ? SPIN_TURNS_REDUCED : SPIN_TURNS
+      const dur = reduced ? SPIN_MS_REDUCED : SPIN_MS
+      const target = cur + turns * TAU + delta
       const t0 = performance.now()
+      let lastSector = -1
 
       const frame = (now: number) => {
-        const p = Math.min(1, (now - t0) / SPIN_MS)
+        const p = Math.min(1, (now - t0) / dur)
         const eased = 1 - Math.pow(1 - p, 3) // ease-out cubic
         rotRef.current = cur + (target - cur) * eased
         draw()
+        // 每跨过一个扇区边界给一次极短触觉，模拟转盘的「咔哒」感；
+        // 接近停止时（p > 0.92）不再震动，避免末尾连震
+        const sector = Math.floor((rotRef.current - cur) / step)
+        if (sector !== lastSector) {
+          lastSector = sector
+          if (p < 0.92) haptics.tick()
+        }
         if (p < 1) {
           rafRef.current = requestAnimationFrame(frame)
         } else {
