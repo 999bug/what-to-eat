@@ -7,7 +7,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 
 import type { Dish } from '@/types'
 
 export interface WheelHandle {
-  spin: () => void
+  /** 转动；传入 targetId 时转到指定那道菜（「换一个」用），不传则随机 */
+  spin: (targetId?: string) => void
 }
 
 interface WheelProps {
@@ -84,10 +85,11 @@ export const Wheel = forwardRef<WheelHandle, WheelProps>(function Wheel({ items,
   useEffect(() => () => cancelAnimationFrame(rafRef.current), [])
 
   useImperativeHandle(ref, () => ({
-    spin: () => {
+    spin: (targetId?: string) => {
       const n = items.length
       if (n === 0) return
-      const idx = Math.floor(Math.random() * n)
+      const wanted = targetId ? items.findIndex((d) => d.id === targetId) : -1
+      const idx = wanted >= 0 ? wanted : Math.floor(Math.random() * n)
       const step = TAU / n
       // 终止角：中选扇区中心对准顶部指针（-PI/2），并叠加整圈数
       const desired = -(idx * step + step / 2)

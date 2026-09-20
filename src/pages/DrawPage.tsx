@@ -4,7 +4,7 @@ import { useAppStore } from '@/stores/useAppStore'
 import { Wheel } from '@/components/Wheel'
 import type { WheelHandle } from '@/components/Wheel'
 import { DayPanel } from '@/components/DayPanel'
-import { CUISINES, cuisineName, TAG_META } from '@/data/meta'
+import { CUISINES, cuisineName, levelDesc, levelName, TAG_META } from '@/data/meta'
 import { todayStr } from '@/lib/date'
 
 export function DrawPage() {
@@ -20,7 +20,7 @@ export function DrawPage() {
   const openFilters = useAppStore((s) => s.openFilters)
   const acceptResult = useAppStore((s) => s.acceptResult)
   const setResult = useAppStore((s) => s.setResult)
-  const againResult = useAppStore((s) => s.againResult)
+  const nextCandidate = useAppStore((s) => s.nextCandidate)
   const favorites = useAppStore((s) => s.favorites)
   const toggleFavorite = useAppStore((s) => s.toggleFavorite)
   const openPick = useAppStore((s) => s.openPick)
@@ -33,30 +33,53 @@ export function DrawPage() {
 
   const meals = midnight ? (['b', 'l', 'd', 'm'] as const) : (['b', 'l', 'd'] as const)
 
+  /** 转盘：转到 targetId 指定的那道菜；不传则随机 */
+  const spinWheel = (targetId?: string) => {
+    setSpinning(true)
+    setResult(null)
+    wheelRef.current?.spin(targetId)
+  }
+
+  /** 抽签桶：先整桶抖动，再翻牌揭晓 */
+  const shakeLots = (targetId: string) => {
+    setSpinning(true)
+    setLotWinId(null)
+    window.setTimeout(() => setLotWinId(targetId), 900)
+    window.setTimeout(() => {
+      setSpinning(false)
+      setLotWinId(null)
+      const d = candidates.find((x) => x.id === targetId)
+      if (d) setResult(d)
+    }, 1450)
+  }
+
   const spin = () => {
     if (spinning || candidates.length === 0) return
     setResult(null)
     if (mode === 'wheel') {
-      setSpinning(true)
-      wheelRef.current?.spin()
+      spinWheel()
     } else {
-      // 抽签桶：先抖动再翻牌揭晓
       const idx = Math.floor(Math.random() * candidates.length)
-      setSpinning(true)
-      setLotWinId(null)
-      window.setTimeout(() => setLotWinId(candidates[idx].id), 900)
-      window.setTimeout(() => {
-        setSpinning(false)
-        setLotWinId(null)
-        setResult(candidates[idx])
-      }, 1450)
+      shakeLots(candidates[idx].id)
     }
+  }
+
+  /** 换一个：先按去重规则算出下一道，再重新转一次转盘 / 重新洗牌 */
+  const again = () => {
+    if (spinning) return
+    const next = nextCandidate()
+    if (!next) return
+    if (mode === 'wheel') spinWheel(next.id)
+    else shakeLots(next.id)
   }
 
   const filterDesc = [
     filters.cuisines.length > 0 ? filters.cuisines.map(cuisineName).join('、') : null,
     filters.tags.length > 0
       ? filters.tags.map((t) => TAG_META.find((x) => x.id === t)?.name ?? t).join('、')
+      : null,
+    filters.levels.length > 0
+      ? '难度' + filters.levels.slice().sort().map(levelName).join('、')
       : null,
   ]
     .filter(Boolean)
@@ -155,14 +178,18 @@ export function DrawPage() {
             <div className="rname">
               {result.icon} {result.name}
               <span className="tagline">{cuisineName(result.cuisines[0])}</span>
+              <span className="lvl">{levelName(result.level)}</span>
             </div>
             <div className="rmeta">食材：{result.ingredients}</div>
-            <div className="ring">约 {result.kcal} kcal / 份（估算值）</div>
+            <div className="ring">
+              约 {result.kcal} kcal / 份（估算值） · 难度{levelName(result.level)}（
+              {levelDesc(result.level)}）
+            </div>
             <div className="acts">
               <button className="btn btn-primary" onClick={acceptResult}>
                 就吃这个
               </button>
-              <button className="btn" onClick={againResult}>
+              <button className="btn" onClick={again} disabled={spinning}>
                 换一个
               </button>
               <button className="btn" onClick={() => openPick(todayStr(), meal)}>

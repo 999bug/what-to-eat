@@ -78,8 +78,11 @@ export interface AppState {
   clearResult: () => void
   /** 就吃这个：写入当前餐次 */
   acceptResult: () => void
-  /** 换一个：排除已展示过的 */
-  againResult: () => void
+  /**
+   * 换一个：算出下一道菜（排除本次已展示过的），**不直接写入 result**。
+   * 返回给调用方去驱动转盘/抽签桶动画，动画结束再由 setResult 落结果。
+   */
+  nextCandidate: () => Dish | null
   /** 就地抽取并写入指定日期餐次 */
   drawFor: (date: string, meal: MealId) => void
   addRecord: (dish: Dish, date: string, meal: MealId, source: RecordSource) => void
@@ -218,15 +221,20 @@ export const useAppStore = create<AppState>((set, get) => {
       get().refreshCandidates()
     },
 
-    againResult: () => {
+    /**
+     * 换一个：算出下一道菜（排除本次已展示过的），不直接写 result——
+     * 由调用方拿它去驱动转盘/抽签桶动画，动画结束再 setResult。
+     */
+    nextCandidate: () => {
       const s = get()
-      if (!s.result || s.candidates.length === 0) return
-      const shown = [...s.shownIds, s.result.id]
+      if (s.candidates.length === 0) return null
+      const shown = s.result ? [...s.shownIds, s.result.id] : s.shownIds
       const next =
         pickWeighted(s.candidates, s.records, s.favorites, s.settings.dedupe, shown) ??
         pickWeighted(s.candidates, s.records, s.favorites, s.settings.dedupe, [])
-      if (!next) return
-      set({ result: next, shownIds: shown })
+      if (!next) return null
+      set({ shownIds: shown })
+      return next
     },
 
     drawFor: (date, meal) => {

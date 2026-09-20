@@ -1,8 +1,8 @@
 /** 底部/居中弹层：筛选面板与补录面板 */
 import { useAppStore } from '@/stores/useAppStore'
-import { AVOID_META, CUISINES, TAG_META } from '@/data/meta'
+import { AVOID_META, CUISINES, LEVEL_META, TAG_META } from '@/data/meta'
 import { DISHES } from '@/data/dishes'
-import { mealName } from '@/data/meta'
+import { mealName, levelName } from '@/data/meta'
 
 export function SheetHost() {
   const sheet = useAppStore((s) => s.sheet)
@@ -16,6 +16,7 @@ function FiltersSheet() {
   const avoid = useAppStore((s) => s.settings.avoid)
   const toggleCuisine = useAppStore((s) => s.toggleCuisine)
   const toggleTag = useAppStore((s) => s.toggleTag)
+  const toggleLevel = useAppStore((s) => s.toggleLevel)
   const toggleAvoid = useAppStore((s) => s.toggleAvoid)
   const clearFilters = useAppStore((s) => s.clearFilters)
   const closeSheet = useAppStore((s) => s.closeSheet)
@@ -55,6 +56,23 @@ function FiltersSheet() {
                 onClick={() => toggleTag(t.id)}
               >
                 {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sheet-sec">
+          <div className="lb">做菜难度（不选为不限）</div>
+          <div className="chips wrap">
+            {LEVEL_META.map((l) => (
+              <button
+                key={l.id}
+                className={'chip' + (filters.levels.includes(l.id) ? ' on' : '')}
+                onClick={() => toggleLevel(l.id)}
+                title={l.desc}
+              >
+                {l.name}
+                <small>{l.desc}</small>
               </button>
             ))}
           </div>
@@ -129,6 +147,7 @@ function PickSheet() {
             >
               <span className="ico">{d.icon}</span>
               <span className="nm">{d.name}</span>
+              <span className="lvl">{levelName(d.level)}</span>
               <span className="kk">{d.kcal} kcal</span>
             </button>
           ))}
