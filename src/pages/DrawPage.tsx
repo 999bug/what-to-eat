@@ -26,10 +26,15 @@ export function DrawPage() {
   const openPick = useAppStore((s) => s.openPick)
   const midnight = useAppStore((s) => s.settings.midnight)
   const avoidCount = useAppStore((s) => s.settings.avoid.length)
+  const openVersion = useAppStore((s) => s.openVersion)
+  const updateVersion = useAppStore((s) => s.updateVersion)
+  const applyUpdate = useAppStore((s) => s.applyUpdate)
 
   const wheelRef = useRef<WheelHandle>(null)
   const [spinning, setSpinning] = useState(false)
   const [lotWinId, setLotWinId] = useState<string | null>(null)
+  /** 结果浮层是否展开：抽出结果后自动居中弹出，关闭后可在转盘下方再次点开 */
+  const [resultOpen, setResultOpen] = useState(false)
 
   const meals = midnight ? (['b', 'l', 'd', 'm'] as const) : (['b', 'l', 'd'] as const)
 
@@ -37,25 +42,32 @@ export function DrawPage() {
   const spinWheel = (targetId?: string) => {
     setSpinning(true)
     setResult(null)
+    setResultOpen(false)
     wheelRef.current?.spin(targetId)
   }
 
   /** 抽签桶：先整桶抖动，再翻牌揭晓 */
   const shakeLots = (targetId: string) => {
     setSpinning(true)
+    setResult(null)
+    setResultOpen(false)
     setLotWinId(null)
     window.setTimeout(() => setLotWinId(targetId), 900)
     window.setTimeout(() => {
       setSpinning(false)
       setLotWinId(null)
       const d = candidates.find((x) => x.id === targetId)
-      if (d) setResult(d)
+      if (d) {
+        setResult(d)
+        setResultOpen(true)
+      }
     }, 1450)
   }
 
   const spin = () => {
     if (spinning || candidates.length === 0) return
     setResult(null)
+    setResultOpen(false)
     if (mode === 'wheel') {
       spinWheel()
     } else {
@@ -88,6 +100,17 @@ export function DrawPage() {
   return (
     <div className="split">
       <div>
+        <div className="verbar">
+          <button className="btn btn-sm btn-ghost" onClick={openVersion}>
+            版本说明 · v{__APP_VERSION__}
+          </button>
+          {updateVersion ? (
+            <button className="btn btn-sm" onClick={applyUpdate}>
+              有新版本 v{updateVersion} · 点此刷新
+            </button>
+          ) : null}
+        </div>
+
         <div className="card">
           <div className="meals">
             {meals.map((m) => (
@@ -151,7 +174,15 @@ export function DrawPage() {
         <div className="card">
           <div className="wheel-box">
             {mode === 'wheel' ? (
-              <Wheel ref={wheelRef} items={candidates} onFinish={(d) => { setSpinning(false); setResult(d) }} />
+              <Wheel
+                ref={wheelRef}
+                items={candidates}
+                onFinish={(d) => {
+                  setSpinning(false)
+                  setResult(d)
+                  setResultOpen(true)
+                }}
+              />
             ) : (
               <div className="lots">
                 {candidates.map((d) => (
@@ -167,37 +198,65 @@ export function DrawPage() {
             <button className="btn btn-primary btn-lg btn-block" onClick={spin} disabled={spinning}>
               {spinning ? '抽取中…' : '今天吃什么'}
             </button>
+            {result && !resultOpen ? (
+              <button className="btn btn-sm btn-ghost btn-block" onClick={() => setResultOpen(true)}>
+                查看结果：{result.icon} {result.name}
+              </button>
+            ) : null}
             <div className="hint">
               {candidates.length > 0 ? `候选 ${candidates.length} 道` : '当前筛选下没有可抽的菜，试试放宽条件'}
             </div>
           </div>
         </div>
 
-        {result ? (
-          <div className="result">
-            <div className="rname">
-              {result.icon} {result.name}
-              <span className="tagline">{cuisineName(result.cuisines[0])}</span>
-              <span className="lvl">{levelName(result.level)}</span>
-            </div>
-            <div className="rmeta">食材：{result.ingredients}</div>
-            <div className="ring">
-              约 {result.kcal} kcal / 份（估算值） · 难度{levelName(result.level)}（
-              {levelDesc(result.level)}）
-            </div>
-            <div className="acts">
-              <button className="btn btn-primary" onClick={acceptResult}>
-                就吃这个
-              </button>
-              <button className="btn" onClick={again} disabled={spinning}>
-                换一个
-              </button>
-              <button className="btn" onClick={() => openPick(todayStr(), meal)}>
-                记入其他餐次
-              </button>
-              <button className="btn btn-sm" onClick={() => toggleFavorite(result.id)}>
-                {favorites.includes(result.id) ? '已收藏' : '收藏'}
-              </button>
+        {result && resultOpen ? (
+          <div
+            className="rmask"
+            onClick={() => setResultOpen(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="抽签结果"
+          >
+            <div className="result" onClick={(e) => e.stopPropagation()}>
+              <div className="rname">
+                {result.icon} {result.name}
+                <span className="tagline">{cuisineName(result.cuisines[0])}</span>
+                <span className="lvl">{levelName(result.level)}</span>
+              </div>
+              <div className="rmeta">食材：{result.ingredients}</div>
+              <div className="ring">
+                约 {result.kcal} kcal / 份（估算值） · 难度{levelName(result.level)}（
+                {levelDesc(result.level)}）
+              </div>
+              <div className="acts">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    acceptResult()
+                    setResultOpen(false)
+                  }}
+                >
+                  就吃这个
+                </button>
+                <button className="btn" onClick={again} disabled={spinning}>
+                  换一个
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setResultOpen(false)
+                    openPick(todayStr(), meal)
+                  }}
+                >
+                  记入其他餐次
+                </button>
+                <button className="btn btn-sm" onClick={() => toggleFavorite(result.id)}>
+                  {favorites.includes(result.id) ? '已收藏' : '收藏'}
+                </button>
+                <button className="btn btn-sm btn-ghost" onClick={() => setResultOpen(false)}>
+                  关闭
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
