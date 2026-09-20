@@ -13,7 +13,7 @@
 | 状态 | 任务 | 进度 | 下一步 |
 |---|---|---|---|
 | ✅ 已完成 | **v1.0.0 正式版落地（Vite + React + TS）** | 数据层 / store / 四个页面 / 外壳主题 / 51 项测试全绿，`npm run check` 通过；配色改为暖米白 + 番茄红 | 无 |
-| 📌 待办 | **GitHub 仓库创建与首次推送** | 本地已 `git init` 并提交初始化文档；正式版代码尚未提交 | 建远端仓库 `what-to-eat` → 推送 → 开启 Pages（Actions 已就绪） |
+| ✅ 已完成 | **GitHub 仓库与 Pages 上线** | 仓库名原为拼写错误的 `waht-to-eat`，已用 gh 改名为 `what-to-eat`（与 vite base 一致）；两个 commit 推送 main；Pages 以 Actions（build_type=workflow）启用，首次部署成功 | 线上：https://999bug.github.io/what-to-eat/ |
 | 📌 待办 | **菜库扩充到 300–400 道** | 当前 160 道（早餐 41 / 午餐 136 / 晚餐 128 / 夜宵 18） | 优先补早餐与夜宵（两端候选最少），集中在 `src/data/dishes.ts` |
 | 📌 待办 | **热量值校准** | 现为常见食物成分表估算，取整到 10 kcal | 逐道核对后改 `src/data/dishes.ts` 即可，无需改逻辑 |
 | ⏸️ 已暂缓 | **菜谱做法 / 一键下单** | 用户明确 v1 不做，只给菜名 + 所需食材 | 后续有需求再启动 |
