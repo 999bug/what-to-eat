@@ -14,7 +14,8 @@ export const CUSTOM_ID_PREFIX = 'c'
 /** 默认值：让「只填菜名」也能立刻可用 */
 export const CUSTOM_DEFAULTS = {
   icon: '🍽️',
-  cuisine: 'home',
+  /** 自定义菜默认归入独立分类「我的菜品」，不再混进家常菜 */
+  cuisine: 'my',
   level: 1 as DishLevel,
   ingredients: '',
 } as const
@@ -139,4 +140,23 @@ export function readCustomDishes(raw: unknown): CustomDish[] {
     (c): c is CustomDish =>
       !!c && typeof c === 'object' && typeof (c as CustomDish).name === 'string',
   )
+}
+
+/**
+ * 旧数据迁移：自定义菜从「默认归家常菜」改为「独立分类我的菜品」。
+ *
+ * 只迁移**仍停留在旧默认值**的菜（cuisines 恰为 ['home'] 或为空）；
+ * 用户当时显式选过川菜/粤菜等的保持原样，不越权重打标签。
+ * 在 store 初始化时执行一次，之后的保存自然落新默认值。
+ */
+export function migrateCustomDishes(list: CustomDish[]): CustomDish[] {
+  let touched = false
+  const out = list.map((c) => {
+    const isOldDefault = c.cuisines.length === 0 || (c.cuisines.length === 1 && c.cuisines[0] === 'home')
+    if (!isOldDefault) return c
+    touched = true
+    return { ...c, cuisines: [CUSTOM_DEFAULTS.cuisine] }
+  })
+  // 没动过就不返回新引用，避免无谓的 state 变更
+  return touched ? out : list
 }

@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import { defineConfig } from 'vitest/config'
 
 // 应用版本号（取自 package.json，define 注入供侧栏与更新日志页显示）
@@ -43,7 +44,38 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
-    plugins: [react(), versionJsonPlugin()],
+    plugins: [
+      react(),
+      versionJsonPlugin(),
+      // PWA：静默自动更新（导航网络优先见 src/sw.ts）——刷新一次必得最新版
+      VitePWA({
+        registerType: 'autoUpdate',
+        // 自定义 SW：插件定位 src/sw.ts 源码，编译后由 workbox-build 注入预缓存清单
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        includeAssets: ['logo.png'],
+        manifest: {
+          name: '今天吃什么',
+          short_name: '今天吃什么',
+          lang: 'zh-CN',
+          theme_color: '#F5F1EA',
+          background_color: '#F5F1EA',
+          display: 'standalone',
+          start_url: `${base}`,
+          scope: `${base}`,
+          // sizes 必须与 public/logo.png 的真实像素一致：声明的尺寸大于实际文件时，
+          // 部分平台会因「声明与实物不符」拒绝该图标而回退成通用灰图标
+          icons: [{ src: 'logo.png', sizes: '256x256', type: 'image/png', purpose: 'any' }],
+        },
+        injectManifest: {
+          globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+          // version.json 由 versionJsonPlugin 在构建收尾写入、须保持最新，
+          // 绝不能进预缓存（否则发版后前端永远读到旧版本号）
+          globIgnores: ['**/version.json'],
+        },
+      }),
+    ],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

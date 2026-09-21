@@ -6,10 +6,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  CUSTOM_DEFAULTS,
   CUSTOM_ID_PREFIX,
   customToDish,
   customToDishes,
   mergeCustomDishes,
+  migrateCustomDishes,
   newCustomId,
   normalizeCustom,
   parseKcal,
@@ -56,7 +58,8 @@ describe('normalizeCustom 规范化', () => {
     const c = normalizeCustom({ name: '  红烧狮子头  ' })
     expect(c.name).toBe('红烧狮子头')
     expect(c.icon).toBe('🍽️')
-    expect(c.cuisines).toEqual(['home'])
+    // 默认归独立分类「我的菜品」，不混进家常菜
+    expect(c.cuisines).toEqual(['my'])
     expect(c.level).toBe(1)
     // 餐次为空时给全餐次，否则用户只填名字后哪都抽不到
     expect(c.meals).toEqual(['b', 'l', 'd', 'm'])
@@ -220,5 +223,37 @@ describe('readCustomDishes 旧备份容错', () => {
     const out = readCustomDishes([{ id: 'c1' }, { id: 'c2', name: 'ok' }, null])
     expect(out).toHaveLength(1)
     expect(out[0].name).toBe('ok')
+  })
+})
+
+describe('migrateCustomDishes 旧数据分类迁移', () => {
+  it('旧默认值（家常菜 / 空）迁到「我的菜品」分类', () => {
+    const out = migrateCustomDishes([
+      mk({ id: 'c1', cuisines: ['home'] }),
+      mk({ id: 'c2', cuisines: [] }),
+    ])
+    expect(out[0].cuisines).toEqual(['my'])
+    expect(out[1].cuisines).toEqual(['my'])
+  })
+
+  it('用户显式选过的菜系不动，不越权改标签', () => {
+    const out = migrateCustomDishes([
+      mk({ id: 'c1', cuisines: ['chuan'] }),
+      mk({ id: 'c2', cuisines: ['home', 'chuan'] }),
+    ])
+    expect(out[0].cuisines).toEqual(['chuan'])
+    expect(out[1].cuisines).toEqual(['home', 'chuan'])
+  })
+
+  it('迁移后可被「我的菜品」菜系筛选命中', () => {
+    const my = customToDish(mk({ id: 'cM', name: '妈妈的菜', meals: ['l'], cuisines: ['my'] }))
+    const pool = poolForMeal('l', ['my'], [], [], [], [my])
+    expect(pool.some((d) => d.id === 'cM')).toBe(true)
+    // 内置菜库不挂 'my'，筛选该分类时只剩自定义菜
+    expect(pool.every((d) => d.custom === true)).toBe(true)
+  })
+
+  it('默认常量指向新分类', () => {
+    expect(CUSTOM_DEFAULTS.cuisine).toBe('my')
   })
 })

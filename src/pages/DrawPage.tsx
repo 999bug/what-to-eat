@@ -257,13 +257,8 @@ export function DrawPage() {
             ) : null}
 
             {mode === 'wheel' ? (
-              /* 手机端整个转盘可点即抽，扩大命中区 */
-              <div
-                className="wheel-tap"
-                onClick={mobile ? spin : undefined}
-                role={mobile ? 'button' : undefined}
-                aria-label={mobile ? '转动转盘' : undefined}
-              >
+              /* 转盘整体可点即抽（桌面 + 手机都开：桌面之前只能点下方按钮，转盘像个摆设） */
+              <div className="wheel-tap" onClick={spin} role="button" aria-label="转动转盘">
                 <Wheel
                   ref={wheelRef}
                   items={candidates}
@@ -275,16 +270,33 @@ export function DrawPage() {
                 />
               </div>
             ) : (
+              /* 抽签桶：签牌本身也能点（点哪张都是整桶开抽），抽出后中奖签翻牌亮出菜名 */
               <div className="lots">
-                {candidates.map((d) => (
-                  <div
+                {candidates.map((d, i) => (
+                  <button
                     key={d.id}
+                    type="button"
                     className={
                       'lot' + (spinning ? ' shake' : '') + (lotWinId === d.id ? ' win' : '')
                     }
+                    style={
+                      spinning && !lotWinId ? { animationDelay: `${(i % 4) * 70}ms` } : undefined
+                    }
+                    onClick={spin}
+                    disabled={spinning}
+                    aria-label={lotWinId === d.id ? `抽中 ${d.name}` : `点此开抽（第 ${i + 1} 签）`}
                   >
-                    🎴
-                  </div>
+                    {lotWinId === d.id ? (
+                      <>
+                        <span className="lot-ico" aria-hidden="true">
+                          {d.icon}
+                        </span>
+                        <span className="lot-name">{d.name}</span>
+                      </>
+                    ) : (
+                      '🎴'
+                    )}
+                  </button>
                 ))}
               </div>
             )}
@@ -313,9 +325,9 @@ export function DrawPage() {
 
             <div className="hint">
               {candidates.length > 0
-                ? mobile
-                  ? `候选 ${candidates.length} 道 · 点转盘开抽`
-                  : `候选 ${candidates.length} 道`
+                ? `候选 ${candidates.length} 道 · 点${
+                    mode === 'wheel' ? '转盘' : '签牌'
+                  }开抽`
                 : '当前筛选下没有可抽的菜，试试放宽条件'}
             </div>
           </div>

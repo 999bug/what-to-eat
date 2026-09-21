@@ -59,6 +59,8 @@ export const CUISINES: readonly CuisineMeta[] = [
   { id: 'xibei', name: '西北新疆' },
   { id: 'yungui', name: '云贵菜' },
   { id: 'foreign', name: '外国菜' },
+  // 自定义菜的专属分类：不与内置菜系混档，抽签页选它就只抽自己加的菜
+  { id: 'my', name: '我的菜品' },
 ]
 
 export const TAG_META: readonly TagMeta[] = [

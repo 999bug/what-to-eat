@@ -60,7 +60,8 @@ export function MyDishesCard() {
 
       {customDishes.length === 0 && !customFormOpen ? (
         <p className="note">
-          还没有自己的菜。添加后会和内置菜库一起参与抽签、补录与统计，同样受忌口与筛选约束。
+          还没有自己的菜。添加后会归入独立分类「我的菜品」，抽签页点「我的菜品」就只抽自己加的菜；
+          同样受忌口与筛选约束，也参与补录与统计。
         </p>
       ) : null}
 

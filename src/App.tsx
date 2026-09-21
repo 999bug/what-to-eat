@@ -7,6 +7,7 @@ import { useAppStore } from '@/stores/useAppStore'
 import { applyTheme } from '@/theme'
 import { SheetHost } from '@/components/Sheets'
 import { VersionNote } from '@/components/VersionNote'
+import { UpdateBanner } from '@/components/UpdateBanner'
 import { DrawPage } from '@/pages/DrawPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { StatsPage } from '@/pages/StatsPage'
@@ -197,6 +198,8 @@ export default function App() {
         ))}
       </nav>
 
+      {/* SW 卡 waiting 时的极端兜底横幅（常态渲染 null） */}
+      <UpdateBanner />
       <SheetHost />
       <Toast />
     </div>
