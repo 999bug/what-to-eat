@@ -4,7 +4,7 @@
  * 单测 lib/custom.ts 是覆盖不到的。
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useAppStore } from '@/stores/useAppStore'
+import { poolOf, useAppStore } from '@/stores/useAppStore'
 import { customToDish } from '@/lib/custom'
 import { monthStat } from '@/lib/stats'
 import type { Dish, MealId } from '@/types'
@@ -52,17 +52,11 @@ describe('自定义菜品 · store actions', () => {
 
     s.setMeal('l')
 
-    // 候选是「8 个加权随机 + 去重」，单次刷新抽不中某一道菜是正常的，
-    // 所以断言不能押在一次运气上：反复刷新，只要抽到过就证明它确实在池子里。
-    // 内置菜库 ~800 道、每轮取 8 个，若新菜根本没进池，连续 60 轮全落空的概率
-    // 约为 (1 - 8/800)^60 ≈ 0.55，但只要有池子，命中的期望轮次很低——这里放宽到
-    // 「至少命中一次」，并配合上面 customDishes 的长度断言，足以定位「压根没入池」的回归。
-    let hit = false
-    for (let i = 0; i < 60 && !hit; i++) {
-      s.refreshCandidates()
-      hit = useAppStore.getState().candidates.some((d) => d.name === '可乐鸡翅')
-    }
-    expect(hit).toBe(true)
+    // 直接断言「它在候选池里」而不是「反复刷新能抽到」。
+    // 候选只有 8 个且是加权随机，抽不中是常态——菜库越大越抽不中，
+    // 靠刷新碰运气会让用例随菜库扩充而随机变红（实测 200 道时已有约 6% 失败率）。
+    // 池成员资格是确定性的，且更贴近这里真正想验证的「新菜入池」这件事。
+    expect(poolOf(useAppStore.getState()).some((d) => d.name === '可乐鸡翅')).toBe(true)
   })
 
   it('新菜入池后，池子的硬过滤条件对它一视同仁（忌口能挡住它）', () => {
@@ -70,16 +64,12 @@ describe('自定义菜品 · store actions', () => {
     s.addCustomDish({ name: '肥牛饭', ingredients: '肥牛、米饭', meals: ['l'] })
     s.setMeal('l')
 
-    // 不禁忌口时反复刷新能抽到，证明它真的进了池
-    let hit = false
-    for (let i = 0; i < 60 && !hit; i++) {
-      s.refreshCandidates()
-      hit = useAppStore.getState().candidates.some((d) => d.name === '肥牛饭')
-    }
-    expect(hit).toBe(true)
+    // 不禁忌口时在池子里，证明它真的进了池
+    expect(poolOf(useAppStore.getState()).some((d) => d.name === '肥牛饭')).toBe(true)
 
-    // 开启「牛羊肉」忌口后，不论刷新多少次都不该再出现
+    // 开启「牛羊肉」忌口后，不论刷新多少次都不该再出现（确定性断言，不依赖随机）
     s.toggleAvoid('mutton')
+    expect(poolOf(useAppStore.getState()).some((d) => d.name === '肥牛饭')).toBe(false)
     for (let i = 0; i < 60; i++) {
       s.refreshCandidates()
       expect(useAppStore.getState().candidates.some((d) => d.name === '肥牛饭')).toBe(false)
@@ -201,7 +191,8 @@ describe('自定义菜品 · 表单开关', () => {
     const s = sid()
     const c = s.addCustomDish({ name: '随便一道菜' })
     expect(c.icon).toBe('🍽️')
-    expect(c.cuisines).toEqual(['home'])
+    // 默认归独立分类「我的菜品」
+    expect(c.cuisines).toEqual(['my'])
     expect(c.meals).toEqual(['b', 'l', 'd', 'm'] as MealId[])
     expect(c.kcal).toBeNull()
   })

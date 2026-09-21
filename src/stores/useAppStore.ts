@@ -18,7 +18,7 @@ import type {
 import { loadItem, saveItem } from '@/lib/storage'
 import { todayStr, monthOf, prettyDate } from '@/lib/date'
 import { pickCandidates, pickWeighted, poolForMeal } from '@/lib/pool'
-import { customToDishes, mergeCustomDishes, normalizeCustom, readCustomDishes } from '@/lib/custom'
+import { customToDishes, mergeCustomDishes, migrateCustomDishes, normalizeCustom, readCustomDishes } from '@/lib/custom'
 import { fetchRemoteVersion, isNewer } from '@/lib/version'
 import { mealName } from '@/data/meta'
 import { seedRecords } from '@/data/seed'
@@ -44,8 +44,12 @@ const initialRecords = (): MealRecord[] => {
   return seeded
 }
 
-/** 自定义菜品（localStorage wte:v1:customDishes）：容错读取，脏数据不阻塞页面 */
-const initialCustomDishes = (): CustomDish[] => readCustomDishes(loadItem<unknown>('customDishes', []))
+/**
+ * 自定义菜品（localStorage wte:v1:customDishes）：容错读取，脏数据不阻塞页面。
+ * 读取后执行一次分类迁移：旧数据里默认挂在「家常菜」的菜改归「我的菜品」分类。
+ */
+const initialCustomDishes = (): CustomDish[] =>
+  migrateCustomDishes(readCustomDishes(loadItem<unknown>('customDishes', [])))
 
 export interface AppState {
   // ---- 会话态 ----
@@ -163,21 +167,30 @@ const initialSettings = (): Settings => ({
   ...loadItem<Partial<Settings>>('settings', {}),
 })
 
+/**
+ * 由一份 state 组合出候选池（`currentPool` 的纯函数版）。
+ *
+ * 为什么单独导出：测试需要确定性地断言「某道菜确实在池子里」。
+ * 早前的用例靠「反复刷新候选看能不能抽到」来间接验证，但候选只有 8 个且加权随机，
+ * 命中率随菜库增大而下降——菜库 200 道时午餐池的单次用例失败率已约 9%，
+ * 再扩库就会变成随机红。池成员资格是确定性的，也更贴近真正想验证的事。
+ */
+export function poolOf(state: AppState): Dish[] {
+  return poolForMeal(
+    state.meal,
+    state.filters.cuisines,
+    state.filters.tags,
+    state.settings.avoid,
+    state.filters.levels,
+    customToDishes(state.customDishes),
+  )
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   const settings0 = initialSettings()
 
   /** 组合当前筛选条件的候选池（多处复用） */
-  const currentPool = () => {
-    const s = get()
-    return poolForMeal(
-      s.meal,
-      s.filters.cuisines,
-      s.filters.tags,
-      s.settings.avoid,
-      s.filters.levels,
-      customToDishes(s.customDishes),
-    )
-  }
+  const currentPool = () => poolOf(get())
 
   return {
     view: 'draw',

@@ -4,8 +4,8 @@ import { DISHES } from '@/data/dishes'
 import { CUISINES, TAG_META } from '@/data/meta'
 
 describe('菜库完整性', () => {
-  it('数量为 160 道', () => {
-    expect(DISHES).toHaveLength(160)
+  it('数量为 370 道', () => {
+    expect(DISHES).toHaveLength(370)
   })
 
   it('id 与菜名均唯一', () => {
