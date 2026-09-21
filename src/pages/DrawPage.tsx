@@ -277,7 +277,10 @@ export function DrawPage() {
                     key={d.id}
                     type="button"
                     className={
-                      'lot' + (spinning ? ' shake' : '') + (lotWinId === d.id ? ' win' : '')
+                      'lot' +
+                      (spinning ? ' shake' : '') +
+                      (lotWinId === d.id ? ' win' : '') +
+                      (lotWinId && lotWinId !== d.id ? ' dim' : '')
                     }
                     style={
                       spinning && !lotWinId ? { animationDelay: `${(i % 4) * 70}ms` } : undefined
@@ -286,16 +289,22 @@ export function DrawPage() {
                     disabled={spinning}
                     aria-label={lotWinId === d.id ? `抽中 ${d.name}` : `点此开抽（第 ${i + 1} 签）`}
                   >
-                    {lotWinId === d.id ? (
-                      <>
-                        <span className="lot-ico" aria-hidden="true">
-                          {d.icon}
+                    <span className="lot-body">
+                      {lotWinId === d.id ? (
+                        <>
+                          <span className="lot-ico" aria-hidden="true">
+                            {d.icon}
+                          </span>
+                          <span className="lot-name">{d.name}</span>
+                        </>
+                      ) : (
+                        /* 未揭晓：签头 + 竖排「食」字标签，做成一支真签的样子 */
+                        <span className="lot-face" aria-hidden="true">
+                          <span className="lot-cap">食</span>
+                          <span className="lot-mark">签</span>
                         </span>
-                        <span className="lot-name">{d.name}</span>
-                      </>
-                    ) : (
-                      '🎴'
-                    )}
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>

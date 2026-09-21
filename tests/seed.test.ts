@@ -46,4 +46,28 @@ describe('seedRecords', () => {
   it('今天的记录存在（首次进入不空白）', () => {
     expect(rs.some((r) => r.date === ymd(new Date()))).toBe(true)
   })
+
+  it('今天一日三餐都有示例记录（抽签页右侧卡片不空白）', () => {
+    const td = ymd(new Date())
+    const todayMeals = new Set(rs.filter((r) => r.date === td).map((r) => r.meal))
+    expect(todayMeals.has('b')).toBe(true)
+    expect(todayMeals.has('l')).toBe(true)
+    expect(todayMeals.has('d')).toBe(true)
+  })
+
+  it('本月 1 号到今天至少覆盖一半天数（日历默认不是空的）', () => {
+    const now = new Date()
+    const days = now.getDate()
+    const covered = new Set(rs.map((r) => r.date)).size
+    expect(covered).toBeGreaterThanOrEqual(Math.ceil(days / 2))
+  })
+
+  it('同一天同一餐次不会出现两条（今天单独生成时容易重复）', () => {
+    const seen = new Set<string>()
+    for (const r of rs) {
+      const key = r.date + ':' + r.meal
+      expect(seen.has(key)).toBe(false)
+      seen.add(key)
+    }
+  })
 })

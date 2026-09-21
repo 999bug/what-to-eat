@@ -16,6 +16,7 @@ import { prettyDate, todayStr } from '@/lib/date'
 import { isMobileWidth } from '@/lib/device'
 import { haptics } from '@/lib/haptics'
 import { mealName } from '@/data/meta'
+import logoUrl from '@/assets/logo.png'
 import type { ViewId } from '@/types'
 
 interface NavItem {
@@ -115,6 +116,7 @@ function useMobile(): boolean {
 export default function App() {
   const view = useAppStore((s) => s.view)
   const nav = useAppStore((s) => s.nav)
+  const goHome = useAppStore((s) => s.goHome)
   const theme = useAppStore((s) => s.settings.theme)
   const meal = useAppStore((s) => s.meal)
   const midnight = useAppStore((s) => s.settings.midnight)
@@ -151,7 +153,20 @@ export default function App() {
   return (
     <div className="app">
       <nav className="rail" aria-label="主导航">
-        <div className="rail-brand">今天吃什么</div>
+        {/* 品牌位：logo 常驻左上角，点它随时回到抽签首页 */}
+        <button
+          type="button"
+          className="rail-brand"
+          onClick={() => {
+            haptics.tap()
+            goHome()
+          }}
+          aria-label="回到首页"
+          title="回到首页"
+        >
+          <img src={logoUrl} alt="" width={32} height={32} decoding="async" />
+          <span className="brand-name">今天吃什么</span>
+        </button>
         {NAV.map((n) => (
           <button
             key={n.id}
@@ -170,7 +185,23 @@ export default function App() {
       <main className={'main' + (mobile ? ' main-mobile' : '')}>
         <div className="wrap">
           <div className="topbar">
-            <h1>{cur.name}</h1>
+            <h1>
+              {/* 手机端没有侧栏，logo 落到顶栏标题左侧，同样可点回首页 */}
+              {mobile ? (
+                <button
+                  type="button"
+                  className="topbar-brand"
+                  onClick={() => {
+                    haptics.tap()
+                    goHome()
+                  }}
+                  aria-label="回到首页"
+                >
+                  <img src={logoUrl} alt="" width={26} height={26} decoding="async" />
+                </button>
+              ) : null}
+              {cur.name}
+            </h1>
             <span className="sub">
               {mobile ? mobileSub : `${cur.sub} · ${prettyDate(todayStr())}`}
             </span>

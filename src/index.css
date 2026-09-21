@@ -65,9 +65,19 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* 移动端：禁止横向滚动，消除橡皮筋回弹带来的「网页感」 */
+  /* 禁止横向滚动，避免内容宽度算错时整页横滑 */
   overflow-x: hidden;
-  overscroll-behavior-y: none;
+}
+
+/* 只在触屏设备上关掉纵向橡皮筋回弹。
+   桌面端绝不能设 overscroll-behavior: none ——
+   侧栏 .rail 用了 position: sticky，一旦根滚动容器被判定为「不可滚动链」，
+   滚轮事件在某些浏览器上就不会驱动页面滚动，表现就是「滚轮完全没反应」。 */
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 button,
@@ -106,7 +116,6 @@ button:disabled {
 .sw:active {
   transform: scale(0.97);
 }
-
 .btn,
 .chip,
 .cal-cell,
@@ -138,8 +147,71 @@ button:disabled {
   height: 100vh;
 }
 
+/* ---------- 品牌位（左上角 logo，点它回首页） ---------- */
+/* 平板窄侧栏（76px）也要露出 logo，只藏文字；≥1200px 才带品牌名 */
 .rail-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition:
+    transform 0.16s ease,
+    opacity 0.18s ease;
+}
+
+.rail-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: block;
+  object-fit: cover;
+}
+
+.rail-brand .brand-name {
   display: none;
+}
+
+.rail-brand:hover {
+  opacity: 0.78;
+}
+
+.rail-brand:active {
+  transform: scale(0.94);
+}
+
+.rail-brand:focus-visible,
+.topbar-brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 手机端顶栏 logo：贴在视图标题左侧 */
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -6px;
+  margin-right: 7px;
+  padding: 0;
+  border-radius: 8px;
+  transition: transform 0.16s ease;
+}
+
+.topbar-brand img {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: block;
+  object-fit: cover;
+}
+
+.topbar-brand:active {
+  transform: scale(0.92);
 }
 
 .rail-item {
@@ -179,6 +251,8 @@ button:disabled {
   flex: 1;
   min-width: 0;
   padding: 16px 16px 96px;
+  /* 桌面端内容高度随内容自然增长，配合根滚动条才不会被裁掉 */
+  overflow-x: clip;
 }
 
 .wrap {
@@ -441,46 +515,161 @@ button:disabled {
 }
 
 /* ---------- 抽签桶 ---------- */
+/* 一支签 = .lot-body（米色签身 + 顶部番茄红签头）；
+   未揭晓时签面竖排「食／签」二字，抽出后翻成菜名。全程纯 CSS，不引外链图。 */
 .lots {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   width: 100%;
+  /* 给签牌一点纵深，别贴在卡片平面上 */
+  padding: 10px 6px 14px;
+  perspective: 700px;
 }
 
 .lot {
-  aspect-ratio: 3 / 4;
+  /* 用按钮包住签身，按钮本身透明——这样热区就是整支签，且不用管 aspect-ratio 撑高 */
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  /* 触屏最小热区兜底 */
+  min-height: 44px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+}
+
+.lot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lot-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 22px;
-  padding: 4px 2px;
-  cursor: pointer;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  padding: 8px 4px;
+  border-radius: 5px 5px 7px 7px;
+  /* 竹木签身：暖色插值，与全局米白底同族 */
+  background: #efe3cd;
+  border: 1px solid #dcc9a5;
+  /* 左侧内阴影模拟签的圆柱感，底部一点落影 */
+  box-shadow:
+    inset 2px 0 3px rgba(255, 255, 255, 0.6),
+    inset -3px 0 5px rgba(150, 122, 82, 0.16),
+    0 2px 3px rgba(43, 38, 34, 0.1);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* 签头：顶部一道番茄红漆，是「签」最容易被一眼认出的特征 */
+.lot-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+[data-theme='dark'] .lot-body {
+  background: #cfbf9e;
+  border-color: #b8a480;
+  box-shadow:
+    inset 2px 0 3px rgba(255, 255, 255, 0.35),
+    inset -3px 0 5px rgba(90, 70, 45, 0.28),
+    0 2px 3px rgba(0, 0, 0, 0.35);
+}
+
+.lot-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  /* 把整组字往下压一点，避开签头 */
+  padding-top: 8px;
+}
+
+/* 签面上的「食」字：刻痕感，不是纯装饰 emoji */
+.lot-cap {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  color: #8a5a30;
+  writing-mode: vertical-rl;
+  letter-spacing: 1px;
+}
+
+.lot-mark {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: #a98963;
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+}
+
+[data-theme='dark'] .lot-cap {
+  color: #5c3a1c;
+}
+
+[data-theme='dark'] .lot-mark {
+  color: #7a5c3a;
 }
 
 /* 桌面端给一点悬停反馈：签牌是可点的，别让它看着像装饰 */
-.lot:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
+.lot:hover:not(:disabled) .lot-body {
+  border-color: #c9b189;
+  transform: translateY(-3px);
+  box-shadow:
+    inset 2px 0 3px rgba(255, 255, 255, 0.6),
+    inset -3px 0 5px rgba(150, 122, 82, 0.16),
+    0 5px 9px rgba(43, 38, 34, 0.16);
 }
 
-.lot.shake {
+.lot:active:not(:disabled) .lot-body {
+  transform: translateY(-1px) scale(0.97);
+}
+
+.lot.shake .lot-body {
   animation: shake 0.45s ease-in-out infinite;
 }
 
-.lot.win {
+/* 未中奖的签：揭晓瞬间退到后面去，让中奖签独自站 C 位 */
+.lot.dim .lot-body {
+  opacity: 0.45;
+  transform: scale(0.94);
+}
+
+/* 中奖签：翻牌立起、换成番茄红的「开奖面」 */
+.lot.win .lot-body {
   background: var(--accent-soft);
   border-color: var(--accent);
+  box-shadow:
+    inset 2px 0 3px rgba(255, 255, 255, 0.4),
+    0 4px 10px rgba(214, 69, 61, 0.22);
   animation: lot-flip 0.5s cubic-bezier(0.2, 0.7, 0.3, 1.05) both;
 }
 
+/* 中奖签去掉红色签头——它已经整支变红了 */
+.lot.win .lot-body::before {
+  opacity: 0;
+}
+
 .lot .lot-ico {
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -1284,10 +1473,18 @@ input.search {
   }
 
   .rail-brand {
-    display: block;
+    flex-direction: row;
+    gap: 9px;
+    padding: 2px 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .rail-brand .brand-name {
+    display: inline;
     font-size: 14px;
     font-weight: 600;
-    padding: 6px 10px 14px;
+    color: var(--text);
+    white-space: nowrap;
   }
 
   .main {
@@ -1826,6 +2023,16 @@ input.search {
   .icon-btn:active,
   .phone-dock .cta:active,
   .cal-cell:active {
+    transform: none;
+  }
+
+  /* 抽签桶：抖动与悬停位移一并停掉，只保留「中奖签变红」这个非运动的反馈 */
+  .lot.shake .lot-body {
+    animation: none;
+  }
+
+  .lot:hover:not(:disabled) .lot-body,
+  .lot:active:not(:disabled) .lot-body {
     transform: none;
   }
 }

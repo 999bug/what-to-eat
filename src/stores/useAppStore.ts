@@ -84,6 +84,12 @@ export interface AppState {
 
   // ---- actions ----
   nav: (v: ViewId) => void
+  /**
+   * 回首页：等价于 nav('draw')，但同时清掉残留的筛选/玩法中间态，
+   * 让「点 logo」是一个确定的「回到干净首页」动作，而不是半路状态。
+   * 注意：不清除忌口与主题等长期偏好（那是设置页的事）。
+   */
+  goHome: () => void
   setMeal: (m: MealId) => void
   toggleCuisine: (c: string) => void
   toggleTag: (t: string) => void
@@ -218,6 +224,18 @@ export const useAppStore = create<AppState>((set, get) => {
     nav: (v) => {
       set({ view: v, result: null, shownIds: [] })
       if (v === 'draw' && get().candidates.length === 0) get().refreshCandidates()
+    },
+
+    goHome: () => {
+      set({
+        view: 'draw',
+        result: null,
+        shownIds: [],
+        // 清掉筛选与弹层，避免「回到首页却还挂着上次的筛选条件」的割裂感
+        filters: { cuisines: [], tags: [], levels: [] },
+        sheet: null,
+      })
+      get().refreshCandidates()
     },
 
     setMeal: (m) => {
